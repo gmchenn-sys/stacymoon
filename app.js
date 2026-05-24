@@ -99,45 +99,52 @@ let mediaStream = null;
 let mediaProcessor = null;
 let voiceActive = false;
 
-let audioPlayer = new Audio();
 let audioQueue = [];
 let isPlaying = false;
+let playbackCtx = null;
 
-function base64ToUint8(b64) {
+function getPlaybackCtx() {
+  if (!playbackCtx || playbackCtx.state === 'closed') {
+    playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return playbackCtx;
+}
+
+function base64ToArrayBuffer(b64) {
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  return bytes.buffer;
 }
 
-function playNextInQueue() {
+async function playNextInQueue() {
   if (isPlaying || audioQueue.length === 0) return;
   isPlaying = true;
-  const url = audioQueue.shift();
-  audioPlayer.src = url;
-  audioPlayer.onended = () => {
-    URL.revokeObjectURL(url);
+  const b64 = audioQueue.shift();
+  try {
+    const ctx = getPlaybackCtx();
+    if (ctx.state === 'suspended') await ctx.resume();
+    const buffer = await ctx.decodeAudioData(base64ToArrayBuffer(b64));
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    voiceBtn.classList.add('voice-speaking');
+    source.onended = () => {
+      isPlaying = false;
+      voiceBtn.classList.remove('voice-speaking');
+      playNextInQueue();
+    };
+    source.start(0);
+  } catch (e) {
+    console.warn('audio error:', e);
     isPlaying = false;
     voiceBtn.classList.remove('voice-speaking');
     playNextInQueue();
-  };
-  audioPlayer.onerror = () => {
-    isPlaying = false;
-    playNextInQueue();
-  };
-  voiceBtn.classList.add('voice-speaking');
-  audioPlayer.play().catch(e => {
-    console.warn('play error:', e);
-    isPlaying = false;
-    playNextInQueue();
-  });
+  }
 }
 
 function enqueueAudio(base64) {
-  const bytes = base64ToUint8(base64);
-  const blob = new Blob([bytes], { type: 'audio/mpeg' });
-  const url = URL.createObjectURL(blob);
-  audioQueue.push(url);
+  audioQueue.push(base64);
   playNextInQueue();
 }
 
@@ -228,8 +235,8 @@ function stopVoice() {
   voiceActive = false;
   audioQueue = [];
   isPlaying = false;
-  audioPlayer.pause();
-  audioPlayer.src = '';
+
+
   if (mediaProcessor) { mediaProcessor.disconnect(); mediaProcessor = null; }
   if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
