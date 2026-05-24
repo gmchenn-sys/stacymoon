@@ -49,7 +49,7 @@ async function askStacy(userMessage) {
     content: userMessage
   });
 
-  const apiUrl = window.STACY_API_URL || 'http://localhost:3000';
+  const apiUrl = 'https://api.deepseek.com/chat/completions';
 
   const response = await fetch(apiUrl, {
     method: "POST",
