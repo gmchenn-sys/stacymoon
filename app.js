@@ -86,91 +86,112 @@ document.getElementById('user-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') sendMessage();
 });
 
-// ── ElevenLabs 语音对话（WebSocket 直连）──────────────────────────
-const AGENT_ID = 'agent_5201ksacn1dqe9g83y6e3d8b88jh';
+// ── Web Speech API 语音对话（打电话式）────────────────────────
 const voiceBtn = document.getElementById('voice-btn');
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const synth = window.speechSynthesis;
 
-let ws = null;
-let audioCtx = null;
-let mediaStream = null;
-let mediaProcessor = null;
+let recognition = null;
 let voiceActive = false;
 
-let audioQueue = [];
-let isPlaying = false;
-let playbackCtx = null;
-
-function getPlaybackCtx() {
-  if (!playbackCtx || playbackCtx.state === 'closed') {
-    playbackCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return playbackCtx;
-}
-
-function base64ToArrayBuffer(b64) {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
-async function playNextInQueue() {
-  if (isPlaying || audioQueue.length === 0) return;
-  isPlaying = true;
-  const b64 = audioQueue.shift();
-  try {
-    const ctx = getPlaybackCtx();
-    if (ctx.state === 'suspended') await ctx.resume();
-    const buffer = await ctx.decodeAudioData(base64ToArrayBuffer(b64));
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
+function speakText(text) {
+  return new Promise((resolve) => {
+    // 去掉 Markdown 符号，让朗读更自然
+    const clean = text.replace(/[*_#`~>\-\[\]]/g, '');
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'zh-CN';
+    u.rate = 1.0;
+    u.pitch = 1.05;
+    // 选一个中文女声
+    const voices = synth.getVoices();
+    const zh = voices.find(v => v.lang.startsWith('zh-CN') || v.lang.startsWith('zh-TW'));
+    if (zh) u.voice = zh;
     voiceBtn.classList.add('voice-speaking');
-    source.onended = () => {
-      isPlaying = false;
+    u.onend = () => {
       voiceBtn.classList.remove('voice-speaking');
-      playNextInQueue();
+      resolve();
     };
-    source.start(0);
-  } catch (e) {
-    console.warn('audio error:', e);
-    isPlaying = false;
-    voiceBtn.classList.remove('voice-speaking');
-    playNextInQueue();
+    u.onerror = () => {
+      voiceBtn.classList.remove('voice-speaking');
+      resolve();
+    };
+    synth.speak(u);
+  });
+}
+
+function startRecognition() {
+  if (!SpeechRecognition) {
+    appendBubble('ai', '当前浏览器不支持语音，请用 Chrome 打开 🌙');
+    return;
   }
-}
+  recognition = new SpeechRecognition();
+  recognition.lang = 'zh-CN';
+  recognition.interimResults = false;
+  recognition.continuous = false;
 
-function enqueueAudio(base64) {
-  audioQueue.push(base64);
-  playNextInQueue();
-}
+  recognition.onresult = async (event) => {
+    const text = event.results[0][0].transcript.trim();
+    if (!text) return;
 
-async function startMic() {
-  mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaStreamSource(mediaStream);
-  mediaProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
-  source.connect(mediaProcessor);
-  mediaProcessor.connect(audioCtx.destination);
+    // 显示用户说的话
+    appendBubble('user', text);
 
-  mediaProcessor.onaudioprocess = (e) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const float32 = e.inputBuffer.getChannelData(0);
-    const ratio = audioCtx.sampleRate / 16000;
-    const outLen = Math.floor(float32.length / ratio);
-    const i16 = new Int16Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      const s = float32[Math.floor(i * ratio)];
-      i16[i] = Math.max(-32768, Math.min(32767, s * 32768));
+    // 显示 loading
+    const loadingId = appendLoading();
+
+    try {
+      const reply = await askStacy(text);
+      removeLoading(loadingId);
+      appendBubble('ai', reply);
+      if (window.notifyDaughter) notifyDaughter(text, reply);
+      saveLog(text, reply);
+
+      // 朗读回复
+      if (voiceActive) {
+        await speakText(reply);
+        // 读完自动开始听下一句
+        if (voiceActive) startRecognition();
+      }
+    } catch (e) {
+      removeLoading(loadingId);
+      const fallback = '网络有点问题，稍后再试一下 🌙';
+      appendBubble('ai', fallback);
+      saveLog(text, fallback);
+      if (voiceActive && voiceActive) startRecognition();
     }
-    const bytes = new Uint8Array(i16.buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    ws.send(JSON.stringify({ user_audio_chunk: btoa(binary) }));
   };
+
+  recognition.onerror = (e) => {
+    console.warn('Speech error:', e.error);
+    if (e.error === 'no-speech' && voiceActive) {
+      // 没检测到说话，继续听
+      startRecognition();
+    } else if (e.error === 'aborted') {
+      // 用户手动停了
+    } else {
+      appendBubble('ai', '语音识别出了点问题，可以打字试试 🌙');
+      stopVoice();
+    }
+  };
+
+  recognition.start();
 }
 
-async function startVoice() {
+function stopVoice() {
+  voiceActive = false;
+  if (recognition) { recognition.abort(); recognition = null; }
+  synth.cancel();
+  voiceBtn.classList.remove('voice-active', 'voice-speaking');
+}
+
+voiceBtn.addEventListener('click', async () => {
+  if (voiceActive) {
+    stopVoice();
+    appendBubble('ai', '语音已结束 🌙');
+    return;
+  }
+
+  // 请求麦克风权限
   try {
     await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
@@ -178,75 +199,8 @@ async function startVoice() {
     return;
   }
 
+  voiceActive = true;
   voiceBtn.classList.add('voice-active');
-  appendBubble('ai', '正在连接语音… 🌙');
-
-  ws = new WebSocket(
-    `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=${AGENT_ID}`
-  );
-
-  ws.onopen = async () => {
-    ws.send(JSON.stringify({ type: 'conversation_initiation_client_data' }));
-    try {
-      await startMic();
-      voiceActive = true;
-      appendBubble('ai', '语音已连接，妈妈请说话 🌙');
-    } catch (err) {
-      appendBubble('ai', '麦克风启动失败：' + err.message);
-      stopVoice();
-    }
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      if (data.type === 'audio' && data.audio_event?.audio_base_64) {
-        enqueueAudio(data.audio_event.audio_base_64);
-      } else if (data.type === 'ping') {
-        setTimeout(() => {
-          if (ws?.readyState === WebSocket.OPEN)
-            ws.send(JSON.stringify({ type: 'pong', event_id: data.ping_event.event_id }));
-        }, data.ping_event.ping_ms || 0);
-      }
-    } catch (err) {
-      console.error('WS message error:', err);
-    }
-  };
-
-  ws.onerror = (e) => {
-    appendBubble('ai', '语音连接出了点问题，可以试试文字 🌙');
-    stopVoice();
-  };
-
-  ws.onclose = (e) => {
-    if (e.code === 1002 && e.reason.includes('quota')) {
-      appendBubble('ai', 'ElevenLabs 语音配额已用完 🌙');
-    } else if (voiceActive) {
-      appendBubble('ai', '语音已断开 🌙');
-    }
-    stopVoice();
-  };
-}
-
-function stopVoice() {
-  voiceActive = false;
-  audioQueue = [];
-  isPlaying = false;
-
-
-  if (mediaProcessor) { mediaProcessor.disconnect(); mediaProcessor = null; }
-  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-  if (audioCtx) { audioCtx.close(); audioCtx = null; }
-  if (ws) { ws.close(); ws = null; }
-  voiceBtn.classList.remove('voice-active', 'voice-speaking');
-  voiceBtn.title = '语音对话';
-}
-
-voiceBtn.addEventListener('click', () => {
-  if (voiceActive) {
-    stopVoice();
-    appendBubble('ai', '语音已结束 🌙');
-  } else {
-    startVoice();
-  }
+  appendBubble('ai', '语音已接通，请说话吧 🌙');
+  startRecognition();
 });
