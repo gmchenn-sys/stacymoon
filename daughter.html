@@ -91,8 +91,8 @@ body{
 <div class="footer">Stacy Moon · 女儿守护版</div>
 
 <script>
-const SUPABASE_URL = 'https://gqahwfuuvoumfxdhfugt.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_EBDC3H5J_WdUSWXmZwndJg_GsGBHN2S';
+const SUPABASE_URL = window.SUPABASE_URL || 'https://gqahwfuuvoumfxdhfugt.supabase.co';
+const SUPABASE_KEY = window.SUPABASE_KEY || 'sb_publishable_EBDC3H5J_WdUSWXmZwndJg_GsGBHN2S';
 
 async function loadLogs() {
   const list = document.getElementById('log-list');

@@ -1,8 +1,5 @@
 // Stacy Moon — App Logic
 
-const SUPABASE_URL = 'https://gqahwfuuvoumfxdhfugt.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_EBDC3H5J_WdUSWXmZwndJg_GsGBHN2S';
-
 async function sendMessage() {
   const input = document.getElementById('user-input');
   const text = input.value.trim();
@@ -39,12 +36,12 @@ async function saveLog(userMessage, aiReply) {
   localStorage.setItem('stacy_logs', JSON.stringify(logs));
 
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/logs`, {
+    await fetch(`${window.SUPABASE_URL}/rest/v1/logs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': window.SUPABASE_KEY,
+        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
         'Prefer': 'return=minimal'
       },
       body: JSON.stringify({ user_message: userMessage, ai_reply: aiReply })

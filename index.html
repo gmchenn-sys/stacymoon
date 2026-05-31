@@ -47,6 +47,24 @@
 </head>
 <body>
 
+  <!-- 邀请码弹窗 -->
+  <div class="overlay" id="invite-overlay">
+    <div class="invite-card">
+      <div class="invite-moon">🌙</div>
+      <h2 class="invite-title">欢迎使用 Stacy Moon</h2>
+      <p class="invite-desc">请输入女儿给你的邀请码</p>
+      <input
+        type="text"
+        id="invite-input"
+        class="invite-input"
+        placeholder="输入邀请码，如 MOON001"
+        autocomplete="off"
+      >
+      <p class="invite-err" id="invite-err"></p>
+      <button id="invite-btn" class="invite-btn">确认</button>
+    </div>
+  </div>
+
   <header class="header">
     <svg class="moon-logo" viewBox="0 0 64 64" width="64" height="64">
       <defs>
@@ -91,8 +109,61 @@
     </div>
   </footer>
 
+  <script src="supabase.js"></script>
   <script src="api.js"></script>
   <script src="notify.js"></script>
   <script src="app.js"></script>
+
+  <script>
+  // ── 邀请码逻辑 ──────────────────────────
+  (function() {
+    const overlay = document.getElementById('invite-overlay');
+    const input = document.getElementById('invite-input');
+    const btn = document.getElementById('invite-btn');
+    const err = document.getElementById('invite-err');
+
+    // 已有邀请码则不弹窗
+    if (localStorage.getItem('stacy_invite_code')) {
+      overlay.style.display = 'none';
+      return;
+    }
+
+    async function submitCode() {
+      const code = input.value.trim().toUpperCase();
+      if (!code) { err.textContent = '请输入邀请码'; return; }
+
+      btn.disabled = true;
+      btn.textContent = '验证中…';
+      err.textContent = '';
+
+      try {
+        const res = await fetch(
+          `${window.SUPABASE_URL}/rest/v1/invite_codes?code=eq.${encodeURIComponent(code)}&select=code`,
+          {
+            headers: {
+              'apikey': window.SUPABASE_KEY,
+              'Authorization': `Bearer ${window.SUPABASE_KEY}`
+            }
+          }
+        );
+        const data = await res.json();
+        if (data.length) {
+          localStorage.setItem('stacy_invite_code', code);
+          overlay.style.display = 'none';
+        } else {
+          err.textContent = '邀请码无效，请核对后再试';
+        }
+      } catch (e) {
+        err.textContent = '网络错误，请稍后再试';
+      }
+
+      btn.disabled = false;
+      btn.textContent = '确认';
+    }
+
+    btn.addEventListener('click', submitCode);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submitCode(); });
+  })();
+  </script>
 </body>
 </html>
