@@ -89,33 +89,20 @@ document.getElementById('user-input').addEventListener('keydown', e => {
 // ── Web Speech API 语音对话（打电话式）────────────────────────
 const voiceBtn = document.getElementById('voice-btn');
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const synth = window.speechSynthesis;
 
 let recognition = null;
 let voiceActive = false;
+const audio = new Audio();
 
-function speakText(text) {
+async function speakText(text) {
+  const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n]/g, '').slice(0, 200);
+  const url = `/api/tts?text=${encodeURIComponent(clean)}`;
+  voiceBtn.classList.add('voice-speaking');
   return new Promise((resolve) => {
-    // 去掉 Markdown 符号，让朗读更自然
-    const clean = text.replace(/[*_#`~>\-\[\]]/g, '');
-    const u = new SpeechSynthesisUtterance(clean);
-    u.lang = 'zh-CN';
-    u.rate = 1.0;
-    u.pitch = 1.05;
-    // 选一个中文女声
-    const voices = synth.getVoices();
-    const zh = voices.find(v => v.lang.startsWith('zh-CN') || v.lang.startsWith('zh-TW'));
-    if (zh) u.voice = zh;
-    voiceBtn.classList.add('voice-speaking');
-    u.onend = () => {
-      voiceBtn.classList.remove('voice-speaking');
-      resolve();
-    };
-    u.onerror = () => {
-      voiceBtn.classList.remove('voice-speaking');
-      resolve();
-    };
-    synth.speak(u);
+    audio.src = url;
+    audio.onended = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
+    audio.onerror = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
+    audio.play().catch(() => { voiceBtn.classList.remove('voice-speaking'); resolve(); });
   });
 }
 
@@ -180,7 +167,6 @@ function startRecognition() {
 function stopVoice() {
   voiceActive = false;
   if (recognition) { recognition.abort(); recognition = null; }
-  synth.cancel();
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
 }
 
