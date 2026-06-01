@@ -15,7 +15,7 @@ function toBase64(str) {
 export async function onRequest({ request }) {
   const url = new URL(request.url);
   const text = url.searchParams.get('text') || '你好';
-  const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n\r]/g, '').slice(0, 200);
+  const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n\r]/g, '').slice(0, 100);
   if (!clean.trim()) return new Response('', { status: 400 });
 
   // ── 鉴权 ──
