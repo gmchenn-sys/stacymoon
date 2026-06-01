@@ -32,43 +32,36 @@ export async function onRequest({ request }) {
 
   const authOrigin = `api_key="${API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
   const authorization = btoa(authOrigin);
-
   const wsUrl = `wss://${host}/v2/tts?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${host}`;
 
   // ── WebSocket ──
   const ws = new WebSocket(wsUrl);
   const chunks = [];
 
+  let settled = false;
   const audio = await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { try { ws.close(); } catch {}; reject(new Error('timeout')); }, 12000);
+    const timer = setTimeout(() => { if (settled) return; settled = true; try { ws.close(); } catch {}; reject(new Error('timeout')); }, 12000);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({
         common: { app_id: APPID },
-        business: {
-          aue: 'lame',
-          auf: 'audio/L16;rate=16000',
-          vcn: 'aisxping',
-          speed: 50,
-          volume: 80,
-          pitch: 50,
-          tte: 'UTF8'
-        },
+        business: { aue: 'lame', auf: 'audio/L16;rate=16000', vcn: 'aisxping', speed: 50, volume: 80, pitch: 50, tte: 'UTF8' },
         data: { status: 2, text: toBase64(clean) }
       }));
     };
 
     ws.onmessage = (e) => {
+      if (settled) return;
       try {
         const msg = JSON.parse(e.data);
-        if (msg.code !== 0) { reject(new Error(msg.message || 'TTS error')); return; }
+        if (msg.code !== 0) { settled = true; clearTimeout(timer); reject(new Error(msg.message || 'TTS code ' + msg.code)); return; }
         if (msg.data?.audio) chunks.push(msg.data.audio);
-        if (msg.data?.status === 2) { clearTimeout(timer); resolve(chunks.join('')); }
-      } catch {}
+        if (msg.data?.status === 2) { settled = true; clearTimeout(timer); resolve(chunks.join('')); }
+      } catch (ex) { /* parse error, ignore */ }
     };
 
-    ws.onerror = () => { clearTimeout(timer); reject(new Error('WS error')); };
-    ws.onclose = () => { clearTimeout(timer); if (!chunks.length) reject(new Error('WS closed')); };
+    ws.onerror = () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('WS error')); } };
+    ws.onclose = () => { if (!settled && !chunks.length) { settled = true; clearTimeout(timer); reject(new Error('WS closed')); } };
   });
 
   // ── 转 MP3 二进制 ──
@@ -77,10 +70,6 @@ export async function onRequest({ request }) {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
 
   return new Response(bytes, {
-    headers: {
-      'Content-Type': 'audio/mpeg',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=3600'
-    }
+    headers: { 'Content-Type': 'audio/mpeg', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' }
   });
 }
