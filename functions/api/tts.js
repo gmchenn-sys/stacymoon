@@ -65,6 +65,12 @@ export async function onRequest({ request }) {
     });
 
     // ── 转 MP3 二进制 ──
+    if (!audio || audio.length < 10) throw new Error('audio too short: ' + audio.length + ' chars');
+    // Validate base64 characters
+    if (!/^[A-Za-z0-9+/=]+$/.test(audio)) {
+      const bad = audio.replace(/[A-Za-z0-9+/=]/g, '');
+      throw new Error('invalid base64 chars at pos ' + audio.indexOf(bad[0]) + ': ' + bad.substring(0, 20));
+    }
     const bin = atob(audio);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
