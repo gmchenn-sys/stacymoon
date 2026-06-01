@@ -61,7 +61,7 @@ export async function onRequest({ request }) {
       };
 
       ws.onerror = () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('WebSocket error')); } };
-      ws.onclose = (e) => { if (!settled && !chunks.length) { settled = true; clearTimeout(timer); reject(new Error('WS closed code=' + e.code)); } };
+      ws.onclose = () => { if (!settled && chunks.length) { settled = true; clearTimeout(timer); resolve(chunks.join('')); } };
     });
 
     // ── 转 MP3 二进制 ──
