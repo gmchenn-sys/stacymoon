@@ -94,6 +94,7 @@ let recognition = null;
 let voiceActive = false;
 
 async function speakText(text) {
+  if (!voiceActive) return;
   const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n]/g, '').slice(0, 200);
   voiceBtn.classList.add('voice-speaking');
   return new Promise((resolve) => {
@@ -171,6 +172,7 @@ function startRecognition() {
 
 function stopVoice() {
   voiceActive = false;
+  window.speechSynthesis.cancel();
   if (recognition) { recognition.abort(); recognition = null; }
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
 }
