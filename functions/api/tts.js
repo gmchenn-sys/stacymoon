@@ -15,9 +15,8 @@ function toBase64(str) {
 export async function onRequest({ request }) {
   try {
     const url = new URL(request.url);
-    const text = url.searchParams.get('text') || '你好';
-    const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n\r，。！？、：；""''…—《》【】]/g, '').slice(0, 100);
-    if (!clean.trim()) return new Response('{"error":"empty text"}', { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+    const text = (url.searchParams.get('text') || '').replace(/[^一-龥a-zA-Z0-9，。！？、：；]/g, '').slice(0, 100);
+    if (!text.trim()) return new Response('{"error":"empty text"}', { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
 
     // ── 鉴权 ──
     const host = 'tts-api.xfyun.cn';
@@ -46,8 +45,8 @@ export async function onRequest({ request }) {
       ws.onopen = () => {
         ws.send(JSON.stringify({
           common: { app_id: APPID },
-          business: { aue: 'lame', auf: 'audio/L16;rate=16000', vcn: 'aisxping', speed: 50, volume: 80, pitch: 50, tte: 'UTF8' },
-          data: { status: 2, text: toBase64(clean) }
+          business: { aue: 'lame', auf: 'audio/L16;rate=16000', vcn: 'x4_yezi', speed: 50, volume: 80, pitch: 50, tte: 'UTF8' },
+          data: { status: 2, text: toBase64(text) }
         }));
       };
 
