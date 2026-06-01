@@ -96,20 +96,23 @@ let voiceActive = false;
 async function speakText(text) {
   if (!voiceActive) return;
   const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n]/g, '').slice(0, 200);
+  const url = `/api/tts?text=${encodeURIComponent(clean)}`;
   voiceBtn.classList.add('voice-speaking');
-  return new Promise((resolve) => {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(clean);
-    utter.lang = 'zh-CN';
-    utter.rate = 0.9;
-    utter.pitch = 1.0;
-    const voices = window.speechSynthesis.getVoices();
-    const zhVoice = voices.find(v => v.lang.startsWith('zh'));
-    if (zhVoice) utter.voice = zhVoice;
-    utter.onend = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
-    utter.onerror = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
-    window.speechSynthesis.speak(utter);
-  });
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('TTS failed');
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const player = new Audio(objUrl);
+    player.volume = 1.0;
+    await player.play();
+    await new Promise(r => {
+      player.onended = () => { URL.revokeObjectURL(objUrl); r(); };
+      player.onerror = () => { URL.revokeObjectURL(objUrl); r(); };
+    });
+  } finally {
+    voiceBtn.classList.remove('voice-speaking');
+  }
 }
 
 function startRecognition() {
