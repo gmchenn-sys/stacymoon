@@ -116,7 +116,9 @@ async function speakText(text) {
 }
 
 function startRecognition() {
+  console.log('[STT] startRecognition 被调用');
   if (!SpeechRecognition) {
+    console.log('[STT] SpeechRecognition 不支持');
     appendBubble('ai', '当前浏览器不支持语音，请用 Chrome 打开 🌙');
     return;
   }
@@ -126,6 +128,7 @@ function startRecognition() {
   recognition.continuous = false;
 
   recognition.onresult = async (event) => {
+    console.log('[STT] 识别结果:', event.results[0][0].transcript);
     const text = event.results[0][0].transcript.trim();
     if (!text) return;
 
@@ -158,7 +161,7 @@ function startRecognition() {
   };
 
   recognition.onerror = (e) => {
-    console.warn('Speech error:', e.error);
+    console.warn('[STT] 错误:', e.error, e.message);
     if (e.error === 'no-speech' && voiceActive) {
       // 没检测到说话，继续听
       startRecognition();
@@ -198,5 +201,7 @@ voiceBtn.addEventListener('click', async () => {
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
   appendBubble('ai', '语音已接通，请说话吧 🌙');
+  console.log('[VOICE] 点击麦克风，准备开始识别');
   startRecognition();
+  console.log('[VOICE] startRecognition 已调用');
 });
