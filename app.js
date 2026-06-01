@@ -113,10 +113,6 @@ async function speakText(text) {
   }
 }
 
-    player.load();
-  });
-}
-
 function startRecognition() {
   if (!SpeechRecognition) {
     appendBubble('ai', '当前浏览器不支持语音，请用 Chrome 打开 🌙');
