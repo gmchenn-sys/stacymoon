@@ -95,7 +95,7 @@ let voiceActive = false;
 
 async function speakText(text) {
   if (!voiceActive) return;
-  const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n]/g, '').slice(0, 100);
+  const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n，。！？、：；""''…—《》【】]/g, '').slice(0, 100);
   const url = `/api/tts?text=${encodeURIComponent(clean)}`;
   voiceBtn.classList.add('voice-speaking');
   try {
