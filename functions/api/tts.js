@@ -65,13 +65,10 @@ export async function onRequest({ request }) {
     });
 
     // ── 转 MP3 二进制 ──
-    if (!audio || audio.length < 10) throw new Error('audio too short: ' + audio.length + ' chars');
-    // Validate base64 characters
-    if (!/^[A-Za-z0-9+/=]+$/.test(audio)) {
-      const bad = audio.replace(/[A-Za-z0-9+/=]/g, '');
-      throw new Error('invalid base64 chars at pos ' + audio.indexOf(bad[0]) + ': ' + bad.substring(0, 20));
-    }
-    const bin = atob(audio);
+    // 去掉各块的 = 填充，拼接后统一补回
+    const raw = audio.replace(/=/g, '');
+    const pad = (4 - raw.length % 4) % 4;
+    const bin = atob(raw + '='.repeat(pad));
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
 
