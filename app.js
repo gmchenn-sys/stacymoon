@@ -97,15 +97,22 @@ async function speakText(text) {
   const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n]/g, '').slice(0, 200);
   const url = `/api/tts?text=${encodeURIComponent(clean)}`;
   voiceBtn.classList.add('voice-speaking');
-  return new Promise((resolve) => {
-    const player = new Audio();
-    player.src = url;
-    const done = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
-    player.onended = done;
-    player.onerror = (e) => { console.error('Audio fail:', e.target.error); done(); };
-    player.addEventListener('canplaythrough', () => {
-      player.play().catch(err => { console.error('Play fail:', err); done(); });
-    }, { once: true });
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const player = new Audio(objUrl);
+    player.volume = 1.0;
+    await player.play();
+    await new Promise(r => {
+      player.onended = () => { URL.revokeObjectURL(objUrl); r(); };
+      player.onerror = () => { URL.revokeObjectURL(objUrl); r(); };
+    });
+  } finally {
+    voiceBtn.classList.remove('voice-speaking');
+  }
+}
+
     player.load();
   });
 }
