@@ -57,7 +57,7 @@ export async function onRequest({ request }) {
           if (msg.code !== 0) { settled = true; clearTimeout(timer); reject(new Error('iFlytek error ' + msg.code + ': ' + (msg.message || 'unknown'))); return; }
           if (msg.data?.audio) chunks.push(msg.data.audio);
           if (msg.data?.status === 2) { settled = true; clearTimeout(timer); resolve(chunks.join('')); }
-        } catch (ex) { /* parse error */ }
+        } catch (ex) { settled = true; clearTimeout(timer); reject(new Error("JSON parse: " + e.data.substring(0, 100))); }
       };
 
       ws.onerror = () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('WebSocket error')); } };
