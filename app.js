@@ -97,12 +97,16 @@ async function speakText(text) {
   const clean = text.replace(/[*_#`~>\-\[\]（）\(\)\n]/g, '').slice(0, 200);
   const url = `/api/tts?text=${encodeURIComponent(clean)}`;
   voiceBtn.classList.add('voice-speaking');
-  const player = new Audio(url);
   return new Promise((resolve) => {
-    player.onended = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
-    player.onerror = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
+    const player = new Audio();
+    player.src = url;
+    const done = () => { voiceBtn.classList.remove('voice-speaking'); resolve(); };
+    player.onended = done;
+    player.onerror = (e) => { console.error('Audio fail:', e.target.error); done(); };
+    player.addEventListener('canplaythrough', () => {
+      player.play().catch(err => { console.error('Play fail:', err); done(); });
+    }, { once: true });
     player.load();
-    player.play().catch(() => { voiceBtn.classList.remove('voice-speaking'); resolve(); });
   });
 }
 
@@ -184,11 +188,6 @@ voiceBtn.addEventListener('click', async () => {
     appendBubble('ai', '需要麦克风权限才能语音对话，请在浏览器设置中允许 🌙');
     return;
   }
-
-  // 解锁音频播放（移动端要求用户手势后才能播音频）
-  const unlock = new Audio('/api/tts?text=%E5%97%AF');
-  unlock.volume = 0.01;
-  unlock.play().then(() => unlock.pause()).catch(() => {});
 
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
