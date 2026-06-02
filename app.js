@@ -81,6 +81,33 @@ function removeLoading(id) {
   if (el) el.remove();
 }
 
+// ── 流式气泡（AI 边生成边显示）──────────────────────
+function createStreamingBubble() {
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = 'bubble-row ai';
+  div.innerHTML = '<span class="avatar">🌙</span><div class="bubble ai-bubble"></div>';
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function updateStreamingBubble(el, text) {
+  const bubble = el.querySelector('.ai-bubble');
+  if (bubble) bubble.textContent = text;
+  const box = document.getElementById('chat-box');
+  box.scrollTop = box.scrollHeight;
+}
+
+function finalizeStreamingBubble(el, text) {
+  const bubble = el.querySelector('.ai-bubble');
+  if (bubble) bubble.textContent = text;
+}
+
+function removeStreamingBubble(el) {
+  if (el) el.remove();
+}
+
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 document.getElementById('user-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') sendMessage();
@@ -155,25 +182,53 @@ function startRecognition() {
     // 显示用户说的话
     appendBubble('user', text);
 
-    // 显示 loading
-    const loadingId = appendLoading();
+    // 创建流式 AI 气泡（边生成边显示）
+    const aiBubble = createStreamingBubble();
 
-    try {
-      const reply = await askStacy(text);
-      removeLoading(loadingId);
-      appendBubble('ai', reply);
-      if (window.notifyDaughter) notifyDaughter(text, reply);
-      saveLog(text, reply);
+    // TTS 句子队列 — 检测到完整句子立即排队播放
+    const ttsQueue = [];
+    let ttsProcessing = false;
 
-      // 朗读回复
-      if (voiceActive) {
-        await speakText(reply);
-        // 读完自动开始听下一句
-        if (voiceActive) startRecognition();
+    async function drainTtsQueue() {
+      if (ttsProcessing) return;
+      ttsProcessing = true;
+      while (ttsQueue.length > 0 && voiceActive) {
+        const sentence = ttsQueue.shift();
+        await speakText(sentence);
       }
+      ttsProcessing = false;
+    }
+
+    function enqueueTts(sentence) {
+      ttsQueue.push(sentence);
+      drainTtsQueue();
+    }
+
+    let streamedText = '';
+    try {
+      const fullReply = await askStacyStream(text,
+        // onSentence — 每检测到完整句子就排队 TTS
+        (sentence) => { enqueueTts(sentence); },
+        // onChar — 实时更新气泡
+        (char) => {
+          streamedText += char;
+          updateStreamingBubble(aiBubble, streamedText);
+        }
+      );
+
+      finalizeStreamingBubble(aiBubble, fullReply);
+      if (window.notifyDaughter) notifyDaughter(text, fullReply);
+      saveLog(text, fullReply);
+
+      // 等待 TTS 队列播放完毕
+      while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // 读完自动开始听下一句
+      if (voiceActive) startRecognition();
     } catch (e) {
       console.error('Stacy 请求失败:', e);
-      removeLoading(loadingId);
+      removeStreamingBubble(aiBubble);
       const fallback = '网络有点问题，稍后再试一下 🌙';
       appendBubble('ai', fallback);
       saveLog(text, fallback);

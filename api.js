@@ -83,3 +83,80 @@ async function askStacy(userMessage) {
 
   return reply;
 }
+
+// 流式版本：AI 边生成边回调，语音模式用
+// onSentence(sentence) — 检测到完整句子时调用，用于排队 TTS
+// onChar(char) — 每个字回调，用于实时更新气泡
+async function askStacyStream(userMessage, onSentence, onChar) {
+  conversationHistory.push({ role: "user", content: userMessage });
+
+  const response = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + window.DEEPSEEK_API_KEY
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      max_tokens: 300,
+      stream: true,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...conversationHistory
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'API 请求失败: ' + response.status);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let sentenceBuffer = '';
+  let buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop(); // 保留不完整的最后一行
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+
+      let parsed;
+      try { parsed = JSON.parse(data); } catch { continue; }
+      const delta = parsed.choices?.[0]?.delta?.content;
+      if (!delta) continue;
+
+      fullText += delta;
+      sentenceBuffer += delta;
+
+      // 实时显示
+      if (onChar) onChar(delta);
+
+      // 检测句子边界：。！？换行
+      const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
+      if (m) {
+        const sentence = m[1].trim();
+        sentenceBuffer = m[2];
+        if (sentence && onSentence) onSentence(sentence);
+      }
+    }
+  }
+
+  // 剩余尾部文字也发送
+  if (sentenceBuffer.trim() && onSentence) {
+    onSentence(sentenceBuffer.trim());
+  }
+
+  conversationHistory.push({ role: 'assistant', content: fullText });
+  return fullText;
+}
