@@ -171,15 +171,6 @@ async function buildSttWsUrl() {
   return `wss://${host}/v2/iat?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${host}`;
 }
 
-function float32ToInt16(float32) {
-  const int16 = new Int16Array(float32.length);
-  for (let i = 0; i < float32.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32[i]));
-    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-  }
-  return int16;
-}
-
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -227,19 +218,34 @@ async function startRecording() {
       // 2) WS 就绪后再开麦克风
       try {
         sttStream = await navigator.mediaDevices.getUserMedia({
-          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
         });
-        sttAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        sttAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const actualRate = sttAudioCtx.sampleRate;
+        console.log('[IAT] AudioContext 采样率:', actualRate, '→ 重采样到 16000');
         const source = sttAudioCtx.createMediaStreamSource(sttStream);
+
+        const targetRate = 16000;
+        const resampleRatio = actualRate / targetRate;
 
         sttProcessor = sttAudioCtx.createScriptProcessor(4096, 1, 1);
         sttProcessor.onaudioprocess = (e) => {
           if (!sttWs || sttWs.readyState !== WebSocket.OPEN) return;
-          const inputData = e.inputBuffer.getChannelData(0);
-          const int16 = float32ToInt16(inputData);
-          const base64 = arrayBufferToBase64(int16.buffer);
+          const input = e.inputBuffer.getChannelData(0);
+          // 重采样: actualRate → 16000
+          const outLen = Math.floor(input.length / resampleRatio);
+          const resampled = new Float32Array(outLen);
+          for (let i = 0; i < outLen; i++) {
+            resampled[i] = input[Math.floor(i * resampleRatio)];
+          }
+          // Float32 → Int16 PCM
+          const pcm = new Int16Array(outLen);
+          for (let i = 0; i < outLen; i++) {
+            const s = Math.max(-1, Math.min(1, resampled[i]));
+            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          }
           sttWs.send(JSON.stringify({
-            data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 }
+            data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: arrayBufferToBase64(pcm.buffer) }
           }));
           sttFrameSent++;
         };
