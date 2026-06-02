@@ -135,8 +135,8 @@ function setMicIcon(type) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// ── 讯飞 STT 语音听写（Push-to-Talk 模式）────────
-//    用户长按/点击录音 → 再次点击停止 → 完整录音送讯飞识别
+// ── 讯飞 STT 语音听写（实时流式）───────────────
+//    点击开始 → 建 WS+录音 → 实时发送音频 → 再点停止 → 自动识别
 // ═══════════════════════════════════════════════════════════
 
 const STT_CREDS = {
@@ -145,15 +145,16 @@ const STT_CREDS = {
   apiSecret: 'NWI5YWRjODE1OTMwYjE2MjFjZTNlOWYw',
 };
 
-// 录音状态
-let sttRecording = false;      // 正在录音
-let sttStream = null;          // MediaStream
-let sttAudioCtx = null;        // AudioContext
-let sttProcessor = null;       // ScriptProcessorNode
-let sttChunks = [];             // 录音 PCM 缓冲区: Int16Array[]
-let sttTotalSamples = 0;       // 总采样数
+// 会话级状态（一次录音=一个会话）
+let sttActive = false;       // 是否在录音会话中
+let sttStream = null;        // MediaStream
+let sttAudioCtx = null;      // AudioContext
+let sttProcessor = null;     // ScriptProcessorNode
+let sttWs = null;            // WebSocket
+let sttFinalText = '';       // 累积的最终识别结果
+let sttFrameSent = 0;        // 已发送音频帧数
 
-// 鉴权（与 TTS 相同）
+// 鉴权
 async function buildSttWsUrl() {
   const host = 'iat-api.xfyun.cn';
   const date = new Date().toUTCString();
@@ -195,163 +196,175 @@ function extractSttText(result) {
   return text;
 }
 
-// ── 开始录音 ─────────────────────────────────
+// ── 开始录音（建 WS + 开麦）───────────────────
 
 async function startRecording() {
-  if (sttRecording) return;
-  console.log('[STT] 开始录音...');
-
-  sttChunks = [];
-  sttTotalSamples = 0;
+  if (sttActive) return;
+  console.log('[IAT] startRecording 开始');
 
   try {
-    sttStream = await navigator.mediaDevices.getUserMedia({
-      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
-    });
-    sttAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-    const source = sttAudioCtx.createMediaStreamSource(sttStream);
-
-    sttProcessor = sttAudioCtx.createScriptProcessor(4096, 1, 1);
-    sttProcessor.onaudioprocess = (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      const int16 = float32ToInt16(inputData);
-      sttChunks.push(int16);
-      sttTotalSamples += int16.length;
-    };
-
-    source.connect(sttProcessor);
-    sttProcessor.connect(sttAudioCtx.destination);
-
-    sttRecording = true;
-    voiceBtn.classList.add('voice-active');
-    setMicIcon('mic');
-    console.log('[STT] 录音中...（点击停止）');
-
-  } catch (e) {
-    console.error('[STT] 录音失败:', e);
-    cleanupRecording();
-    if (e.name === 'NotAllowedError') {
-      appendBubble('ai', '需要麦克风权限才能语音对话 🌙');
-    }
-  }
-}
-
-// ── 停止录音 + 送讯飞识别 ──────────────────────
-
-async function stopRecordingAndRecognize() {
-  if (!sttRecording) return;
-  console.log('[STT] 停止录音，共 ' + sttTotalSamples + ' 采样');
-
-  // 断开录音
-  sttRecording = false;
-  if (sttProcessor) { try { sttProcessor.disconnect(); } catch {} sttProcessor = null; }
-  if (sttAudioCtx) { try { sttAudioCtx.close(); } catch {} sttAudioCtx = null; }
-  if (sttStream) { sttStream.getTracks().forEach(t => { try { t.stop(); } catch {} }); sttStream = null; }
-
-  if (sttChunks.length === 0 || sttTotalSamples === 0) {
-    console.log('[STT] 无录音数据');
-    voiceBtn.classList.remove('voice-active');
-    setMicIcon('mic');
-    appendBubble('ai', '没有听到声音，请再试一次 🌙');
-    return;
-  }
-
-  try {
-    // 鉴权 + 建 WebSocket
-    console.log('[IAT] 开始鉴权...');
+    // 1) 先鉴权建 WebSocket
+    console.log('[IAT] 鉴权中...');
     const wsUrl = await buildSttWsUrl();
-    console.log('[IAT] WS URL 已生成, 连接中...');
-    const ws = new WebSocket(wsUrl);
-    let finalText = '';
+    console.log('[IAT] 鉴权完成, 连接 WS...');
+    sttWs = new WebSocket(wsUrl);
+    sttFinalText = '';
+    sttFrameSent = 0;
 
-    ws.onopen = () => {
+    sttWs.onopen = async () => {
       console.log('[IAT] WebSocket 已连接');
-      console.log('[STT] WS 已连接，发送录音...');
-      // 参数帧
-      ws.send(JSON.stringify({
+      // 发送参数帧
+      sttWs.send(JSON.stringify({
         common: { app_id: STT_CREDS.appId },
         business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 5000 },
         data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
       }));
-      console.log('[IAT] 发送参数帧');
+      console.log('[IAT] 参数帧已发送');
 
-      // 流式发送所有缓存的 PCM 帧
-      for (let i = 0; i < sttChunks.length; i++) {
-        const base64 = arrayBufferToBase64(sttChunks[i].buffer);
-        console.log('[IAT] 发送音频帧', sttChunks[i].byteLength, 'bytes');
-        ws.send(JSON.stringify({
-          data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 }
-        }));
+      // 2) WS 就绪后再开麦克风
+      try {
+        sttStream = await navigator.mediaDevices.getUserMedia({
+          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+        });
+        sttAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        const source = sttAudioCtx.createMediaStreamSource(sttStream);
+
+        sttProcessor = sttAudioCtx.createScriptProcessor(4096, 1, 1);
+        sttProcessor.onaudioprocess = (e) => {
+          if (!sttWs || sttWs.readyState !== WebSocket.OPEN) return;
+          const inputData = e.inputBuffer.getChannelData(0);
+          const int16 = float32ToInt16(inputData);
+          const base64 = arrayBufferToBase64(int16.buffer);
+          sttWs.send(JSON.stringify({
+            data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 }
+          }));
+          sttFrameSent++;
+        };
+
+        source.connect(sttProcessor);
+        sttProcessor.connect(sttAudioCtx.destination);
+
+        sttActive = true;
+        voiceBtn.classList.add('voice-active');
+        setMicIcon('mic');
+        console.log('[IAT] 麦克风已开启，实时发送音频帧...');
+      } catch (e) {
+        console.error('[IAT] 麦克风失败:', e);
+        cleanupStt();
+        if (e.name === 'NotAllowedError') {
+          appendBubble('ai', '需要麦克风权限才能语音对话 🌙');
+        }
       }
-
-      // 发送结束帧
-      ws.send(JSON.stringify({
-        data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
-      }));
-      console.log('[IAT] 发送结束帧, 全部 ' + sttChunks.length + ' 帧已发送');
     };
 
-    ws.onmessage = (e) => {
+    sttWs.onmessage = (e) => {
       console.log('[IAT] 收到消息', e.data.slice(0, 500));
       try {
         const msg = JSON.parse(e.data);
         if (msg.code !== 0) {
-          console.warn('[STT] 讯飞错误:', msg.code, msg.message);
+          console.warn('[IAT] 讯飞错误:', msg.code, msg.message);
           return;
         }
         if (msg.data?.result) {
           const text = extractSttText(msg.data.result);
-          if (text) finalText = text;
+          if (text) {
+            sttFinalText = text;
+            console.log('[IAT] 实时识别:', text);
+          }
         }
         if (msg.data?.status === 2) {
-          console.log('[STT] 最终结果:', finalText);
-          ws.close();
-          voiceBtn.classList.remove('voice-active');
-          setMicIcon('mic');
+          console.log('[IAT] 最终结果:', sttFinalText, '共发送', sttFrameSent, '帧');
+          cleanupStt();
 
-          if (finalText.trim() && voiceActive) {
+          if (sttFinalText.trim() && voiceActive) {
             abortAllTts();
-            handleSpeechInput(finalText.trim());
+            handleSpeechInput(sttFinalText.trim());
           } else if (voiceActive) {
-            console.log('[STT] 未识别到语音');
             appendBubble('ai', '没有听清，请再说一次 🌙');
           }
         }
       } catch {}
     };
 
-    ws.onerror = (event) => {
+    sttWs.onerror = (event) => {
       console.log('[IAT] 错误', event);
-      console.error('[STT] WS 错误');
-      voiceBtn.classList.remove('voice-active');
-      setMicIcon('mic');
+      cleanupStt();
       appendBubble('ai', '语音识别连接失败，请重试 🌙');
     };
 
-    ws.onclose = (event) => {
-      console.log('[IAT] WS 关闭, code=' + event.code + ' reason=' + event.reason);
+    sttWs.onclose = (event) => {
+      console.log('[IAT] WS 关闭, code=' + event.code);
     };
 
   } catch (e) {
-    console.error('[STT] 识别失败:', e);
-    voiceBtn.classList.remove('voice-active');
-    setMicIcon('mic');
-    appendBubble('ai', '语音识别失败，请重试 🌙');
+    console.error('[IAT] 启动失败:', e);
+    cleanupStt();
+    appendBubble('ai', '语音识别启动失败，请重试 🌙');
   }
-
-  sttChunks = [];
-  sttTotalSamples = 0;
 }
 
-// ── 清理录音资源（不送识别）───────────────────
+// ── 停止录音（发送结束帧）─────────────────────
 
-function cleanupRecording() {
-  sttRecording = false;
+function stopRecording() {
+  if (!sttActive) return;
+  console.log('[IAT] 停止录音, 已发送', sttFrameSent, '帧');
+
+  sttActive = false;
+
+  // 断开麦克风
   if (sttProcessor) { try { sttProcessor.disconnect(); } catch {} sttProcessor = null; }
   if (sttAudioCtx) { try { sttAudioCtx.close(); } catch {} sttAudioCtx = null; }
   if (sttStream) { sttStream.getTracks().forEach(t => { try { t.stop(); } catch {} }); sttStream = null; }
-  sttChunks = [];
-  sttTotalSamples = 0;
+
+  // 发送结束帧（WS 可能还在等待连接，延迟发送）
+  const sendEnd = () => {
+    if (sttWs && sttWs.readyState === WebSocket.OPEN) {
+      sttWs.send(JSON.stringify({
+        data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+      }));
+      console.log('[IAT] 结束帧已发送');
+    } else if (sttWs && sttWs.readyState === WebSocket.CONNECTING) {
+      // WS 还在连接中，等连接成功后再发
+      console.log('[IAT] WS 连接中，等待后发送结束帧');
+      sttWs.addEventListener('open', () => {
+        sttWs.send(JSON.stringify({
+          data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+        }));
+        console.log('[IAT] 延迟结束帧已发送');
+      }, { once: true });
+    }
+  };
+
+  if (sttFrameSent === 0) {
+    // 还没发送任何音频帧（WS 可能还在握手），等 WS open 后再处理
+    console.log('[IAT] 0 帧发送，等待 WS 就绪');
+    if (sttWs && sttWs.readyState === WebSocket.CONNECTING) {
+      sttWs.addEventListener('open', () => {
+        if (sttWs && sttWs.readyState === WebSocket.OPEN) {
+          sttWs.send(JSON.stringify({
+            data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+          }));
+          console.log('[IAT] 直接结束帧');
+        }
+      }, { once: true });
+    } else {
+      sendEnd();
+    }
+  } else {
+    sendEnd();
+  }
+}
+
+// ── 清理所有 STT 资源 ────────────────────────
+
+function cleanupStt() {
+  sttActive = false;
+  sttFinalText = '';
+  sttFrameSent = 0;
+  if (sttProcessor) { try { sttProcessor.disconnect(); } catch {} sttProcessor = null; }
+  if (sttAudioCtx) { try { sttAudioCtx.close(); } catch {} sttAudioCtx = null; }
+  if (sttStream) { sttStream.getTracks().forEach(t => { try { t.stop(); } catch {} }); sttStream = null; }
+  if (sttWs) { try { sttWs.close(); } catch {} sttWs = null; }
   voiceBtn.classList.remove('voice-active');
   setMicIcon('mic');
 }
@@ -476,7 +489,7 @@ async function handleSpeechInput(text) {
     console.log('[TTS] drainTtsQueue 开始, 队列:', ttsQueue.length);
 
     isSpeaking = true;
-    if (sttRecording) { stopRecordingAndRecognize(); }  // 先结束录音
+    if (sttActive) { stopRecording(); }
     console.log('[TTS] isSpeaking=true, 录音已停止');
 
     ttsProcessing = true;
@@ -542,7 +555,7 @@ async function handleSpeechInput(text) {
 function stopVoice() {
   voiceActive = false;
   isSpeaking = false;
-  cleanupRecording();
+  cleanupStt();
   abortAllTts();
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
   setMicIcon('mic');
@@ -579,9 +592,10 @@ voiceBtn.addEventListener('click', async () => {
     return;
   }
 
-  // 正在录音中点击 → 停止录音并识别
-  if (sttRecording) {
-    await stopRecordingAndRecognize();
+  // 正在录音中点击 → 停止录音并自动识别
+  if (sttActive) {
+    stopRecording();
+    appendBubble('ai', '好的，让我想想 🌙');
     return;
   }
 
@@ -595,6 +609,6 @@ voiceBtn.addEventListener('click', async () => {
   // 空闲 → 开启通话 + 开始录音
   voiceActive = true;
   isSpeaking = false;
-  appendBubble('ai', '语音已接通，请说话 🌙\n说完再点一下发送');
+  appendBubble('ai', '请说话 🌙');
   startRecording();
 });
