@@ -29,7 +29,6 @@ async function saveLog(userMessage, aiReply) {
   const now = new Date();
   const timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
 
-  // 同时写 localStorage（本地备份）和 Supabase（跨设备）
   const logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
   logs.push({ time: timeStr, userMessage, aiReply });
   if (logs.length > 20) logs.shift();
@@ -121,11 +120,69 @@ let recognition = null;
 let voiceActive = false;
 let currentAudio = null;
 
-// ── TTS 工具：分离请求与播放，支持预加载 ────────────
+// ── 数字 → 中文转换（TTS 前预处理）────────────────────
+
+const DIGIT_MAP = { '0':'零','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九' };
+
+function numToCN(n) {
+  // n 是整数，0-9999
+  if (n === 0) return '零';
+  let s = '';
+  const thousands = Math.floor(n / 1000);
+  const hundreds = Math.floor((n % 1000) / 100);
+  const tens = Math.floor((n % 100) / 10);
+  const ones = n % 10;
+
+  if (thousands) { s += DIGIT_MAP[thousands] + '千'; if (!hundreds && (tens || ones)) s += '零'; }
+  if (hundreds) { s += DIGIT_MAP[hundreds] + '百'; if (!tens && ones) s += '零'; }
+  if (tens) {
+    if (tens === 1 && !thousands && !hundreds) s += '十';
+    else s += DIGIT_MAP[tens] + '十';
+  }
+  if (ones) s += DIGIT_MAP[ones];
+  return s;
+}
+
+function decimalToCN(s) {
+  // "1.6" → "一点六", "0.5" → "零点五"
+  const [int, dec] = s.split('.');
+  let r = numToCN(parseInt(int));
+  r += '点';
+  for (const c of dec) r += DIGIT_MAP[c] || c;
+  return r;
+}
+
+const UNIT_CN = {
+  'mg': '毫克','g': '克','kg': '公斤',
+  'ml': '毫升','l': '升',
+  'min': '分钟','h': '小时',
+  'cm': '厘米','m': '米','mm': '毫米',
+  'kcal': '千卡','cal': '卡',
+};
+
+function normalizeTtsText(text) {
+  if (!text) return '';
+  // 1) 数字范围 "200-400mg" → "两百到四百毫克"
+  let result = text.replace(/(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)([a-zA-Z]*)/g, (_, a, b, unit) => {
+    const cnA = a.includes('.') ? decimalToCN(a) : numToCN(parseInt(a));
+    const cnB = b.includes('.') ? decimalToCN(b) : numToCN(parseInt(b));
+    const cnUnit = unit ? (UNIT_CN[unit.toLowerCase()] || unit) : '';
+    return cnA + '到' + cnB + cnUnit;
+  });
+  // 2) 独立数字+单位 "30g" "200mg"（不跟在 "到" 后面，不在范围里）
+  result = result.replace(/(?<![到\d])(\d+(?:\.\d+)?)([a-zA-Z]+)/g, (_, num, unit) => {
+    const cn = num.includes('.') ? decimalToCN(num) : numToCN(parseInt(num));
+    const cnUnit = UNIT_CN[unit.toLowerCase()] || unit;
+    return cn + cnUnit;
+  });
+  // 3) 去标点，限长
+  return result.replace(/[^一-龥a-zA-Z0-9，。！？、：；到千百零一二三四五六七八九点]/g, '').slice(0, 150);
+}
 
 function cleanTtsText(text) {
   if (!text) return '';
-  return text.replace(/[^一-龥a-zA-Z0-9，。！？、：；]/g, '').slice(0, 150);
+  const normalized = normalizeTtsText(text);
+  return normalized;
 }
 
 async function fetchTtsBlob(text) {
@@ -139,7 +196,7 @@ async function fetchTtsBlob(text) {
 }
 
 async function playTtsBlob(blob) {
-  if (!blob || !voiceActive) return;
+  if (!blob || !voiceActive || ttsAborted) return;
   voiceBtn.classList.add('voice-speaking');
   try {
     const objUrl = URL.createObjectURL(blob);
@@ -155,22 +212,82 @@ async function playTtsBlob(blob) {
   }
 }
 
+// ── TTS 打断机制 ─────────────────────────────
+
+let ttsAborted = false;
+let currentTtsQueue = null;
+let interruptRecognizer = null;
+
+function abortAllTts() {
+  ttsAborted = true;
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  window.speechSynthesis.cancel();
+  if (currentTtsQueue) { currentTtsQueue.length = 0; }
+  if (interruptRecognizer) {
+    try { interruptRecognizer.abort(); } catch {}
+    interruptRecognizer = null;
+  }
+}
+
+function startInterruptDetector(onSpeech) {
+  if (!SpeechRecognition) return;
+  abortAllTts(); // 上一轮如有残留先清理
+
+  interruptRecognizer = new SpeechRecognition();
+  interruptRecognizer.lang = 'zh-CN';
+  interruptRecognizer.continuous = false;
+  interruptRecognizer.interimResults = false;
+
+  interruptRecognizer.onspeechstart = () => {
+    console.log('[INTERRUPT] 检测到用户开始说话，打断 TTS');
+    abortAllTts();
+  };
+
+  interruptRecognizer.onresult = (event) => {
+    const text = event.results[0][0].transcript.trim();
+    console.log('[INTERRUPT] 识别到打断语音:', text);
+    if (text && voiceActive) {
+      try { interruptRecognizer.abort(); } catch {}
+      interruptRecognizer = null;
+      onSpeech(text);
+    }
+  };
+
+  interruptRecognizer.onerror = (e) => {
+    if (e.error === 'no-speech') {
+      // 没说话，继续监听
+      if (voiceActive && !ttsAborted && interruptRecognizer) {
+        try { interruptRecognizer.start(); } catch {}
+      }
+    }
+  };
+
+  try { interruptRecognizer.start(); } catch {}
+}
+
+function stopInterruptDetector() {
+  if (interruptRecognizer) {
+    try { interruptRecognizer.abort(); } catch {}
+    interruptRecognizer = null;
+  }
+}
+
 // 兼容旧接口（打字模式 + fallback）
 async function speakText(text) {
-  if (!voiceActive) return;
+  if (!voiceActive || ttsAborted) return;
   const clean = cleanTtsText(text);
   voiceBtn.classList.add('voice-speaking');
 
   let played = false;
   try {
     const blob = await fetchTtsBlob(clean);
-    if (blob) {
+    if (blob && !ttsAborted) {
       await playTtsBlob(blob);
       played = true;
     }
   } catch {}
 
-  if (!played && voiceActive) {
+  if (!played && voiceActive && !ttsAborted) {
     await new Promise(r => {
       const utter = new SpeechSynthesisUtterance(clean);
       utter.lang = 'zh-CN';
@@ -184,6 +301,98 @@ async function speakText(text) {
 
   voiceBtn.classList.remove('voice-speaking');
 }
+
+// ── 语音输入处理（可被 interrupt 复用）────────────────
+
+async function handleSpeechInput(text) {
+  if (!text) return;
+  appendBubble('user', text);
+
+  const aiBubble = createStreamingBubble();
+
+  const ttsQueue = [];
+  currentTtsQueue = ttsQueue;
+  ttsAborted = false;
+  let ttsProcessing = false;
+
+  async function drainTtsQueue() {
+    if (ttsProcessing) return;
+    ttsProcessing = true;
+
+    // TTS 开始播放后，启动打断检测
+    startInterruptDetector(handleSpeechInput);
+
+    let prefetchedBlob = null;
+
+    while (ttsQueue.length > 0 && voiceActive && !ttsAborted) {
+      const sentence = ttsQueue.shift();
+
+      const nextFetch = ttsQueue.length > 0
+        ? fetchTtsBlob(ttsQueue[0])
+        : Promise.resolve(null);
+
+      if (prefetchedBlob) {
+        await playTtsBlob(prefetchedBlob);
+      } else {
+        const blob = await fetchTtsBlob(sentence);
+        if (blob && !ttsAborted) await playTtsBlob(blob);
+      }
+
+      // 句子间固定 30ms
+      if (voiceActive && !ttsAborted && ttsQueue.length > 0) {
+        await new Promise(r => setTimeout(r, 30));
+      }
+
+      prefetchedBlob = await nextFetch;
+    }
+
+    stopInterruptDetector();
+    if (prefetchedBlob && !ttsAborted && voiceActive) {
+      await playTtsBlob(prefetchedBlob);
+    }
+    currentTtsQueue = null;
+    ttsProcessing = false;
+  }
+
+  function enqueueTts(sentence) {
+    ttsQueue.push(sentence);
+    drainTtsQueue();
+  }
+
+  let streamedText = '';
+  try {
+    const fullReply = await askStacyStream(text,
+      (sentence) => { enqueueTts(sentence); },
+      (char) => {
+        streamedText += char;
+        updateStreamingBubble(aiBubble, streamedText);
+      }
+    );
+
+    if (ttsAborted) return; // 用户已打断，不覆盖气泡
+
+    finalizeStreamingBubble(aiBubble, fullReply);
+    if (window.notifyDaughter) notifyDaughter(text, fullReply);
+    saveLog(text, fullReply);
+
+    while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive && !ttsAborted) {
+      await new Promise(r => setTimeout(r, 200));
+    }
+    stopInterruptDetector();
+    if (voiceActive && !ttsAborted) startRecognition();
+  } catch (e) {
+    console.error('Stacy 请求失败:', e);
+    if (!ttsAborted) {
+      removeStreamingBubble(aiBubble);
+      appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
+    }
+    saveLog(text, '');
+    stopInterruptDetector();
+    if (voiceActive) startRecognition();
+  }
+}
+
+// ── 语音识别 ─────────────────────────────────
 
 function startRecognition() {
   console.log('[STT] startRecognition 被调用');
@@ -202,89 +411,15 @@ function startRecognition() {
     const text = event.results[0][0].transcript.trim();
     if (!text) return;
 
-    // 显示用户说的话
-    appendBubble('user', text);
+    // 打断当前 TTS
+    abortAllTts();
 
-    // 创建流式 AI 气泡（边生成边显示）
-    const aiBubble = createStreamingBubble();
-
-    // TTS 句子队列 — 预加载下一句，消除句子间停顿
-    const ttsQueue = [];
-    let ttsProcessing = false;
-
-    async function drainTtsQueue() {
-      if (ttsProcessing) return;
-      ttsProcessing = true;
-
-      let prefetchedBlob = null;
-
-      while (ttsQueue.length > 0 && voiceActive) {
-        const sentence = ttsQueue.shift();
-
-        // 当前句开始播放时，立即并行预请求下一句音频（跨越网络延迟）
-        const nextFetch = ttsQueue.length > 0
-          ? fetchTtsBlob(ttsQueue[0])
-          : Promise.resolve(null);
-
-        // 播放当前句
-        if (prefetchedBlob) {
-          await playTtsBlob(prefetchedBlob);
-        } else {
-          const blob = await fetchTtsBlob(sentence);
-          if (blob) await playTtsBlob(blob);
-        }
-
-        // 句子间固定 50ms 停顿
-        if (voiceActive && ttsQueue.length > 0) {
-          await new Promise(r => setTimeout(r, 50));
-        }
-
-        prefetchedBlob = await nextFetch;
-      }
-      ttsProcessing = false;
-    }
-
-    function enqueueTts(sentence) {
-      ttsQueue.push(sentence);
-      drainTtsQueue();
-    }
-
-    let streamedText = '';
-    try {
-      const fullReply = await askStacyStream(text,
-        // onSentence — 每检测到完整句子就排队 TTS
-        (sentence) => { enqueueTts(sentence); },
-        // onChar — 实时更新气泡
-        (char) => {
-          streamedText += char;
-          updateStreamingBubble(aiBubble, streamedText);
-        }
-      );
-
-      finalizeStreamingBubble(aiBubble, fullReply);
-      if (window.notifyDaughter) notifyDaughter(text, fullReply);
-      saveLog(text, fullReply);
-
-      // 等待 TTS 队列播放完毕
-      while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive) {
-        await new Promise(r => setTimeout(r, 200));
-      }
-      // 读完自动开始听下一句
-      if (voiceActive) startRecognition();
-    } catch (e) {
-      console.error('Stacy 请求失败:', e);
-      removeStreamingBubble(aiBubble);
-      const fallback = '网络有点问题，稍后再试一下 🌙';
-      appendBubble('ai', fallback);
-      saveLog(text, fallback);
-      if (voiceActive) startRecognition();
-    }
+    handleSpeechInput(text);
   };
 
   recognition.onerror = (e) => {
     console.warn('[STT] 错误:', e.error, e.message);
     if (e.error === 'no-speech' && voiceActive) {
-      // 没检测到说话，继续听
       startRecognition();
     } else if (e.error === 'aborted') {
       // 用户手动停了
@@ -299,13 +434,8 @@ function startRecognition() {
 
 function stopVoice() {
   voiceActive = false;
-  // 停止正在播放的 Audio 实例
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
-  // 同时取消浏览器内置 TTS（作为双重保险）
-  window.speechSynthesis.cancel();
+  abortAllTts();
+  stopInterruptDetector();
   if (recognition) { recognition.abort(); recognition = null; }
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
 }
@@ -317,7 +447,6 @@ voiceBtn.addEventListener('click', async () => {
     return;
   }
 
-  // 请求麦克风权限
   try {
     await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
