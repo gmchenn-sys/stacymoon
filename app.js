@@ -328,8 +328,9 @@ async function handleSpeechInput(text) {
     console.log('[TTS] drainTtsQueue 开始, 队列长度:', ttsQueue.length);
     ttsProcessing = true;
 
-    // TTS 开始播放后，启动打断检测
-    startInterruptDetector(handleSpeechInput);
+    // 暂停主识别 + 打断检测，避免 TTS 音频被当作用户输入
+    if (recognition) { try { recognition.stop(); } catch {} }
+    stopInterruptDetector();
 
     let prefetchedBlob = null;
 
@@ -356,12 +357,18 @@ async function handleSpeechInput(text) {
       prefetchedBlob = await nextFetch;
     }
 
-    stopInterruptDetector();
     if (prefetchedBlob && !ttsAborted && voiceActive) {
       await playTtsBlob(prefetchedBlob);
     }
     currentTtsQueue = null;
     ttsProcessing = false;
+
+    // 所有句子播完，等 300ms 再重启识别（避免 TTS 尾音被捕获）
+    if (voiceActive && !ttsAborted) {
+      console.log('[TTS] drainTtsQueue 完成, 300ms 后重启识别');
+      await new Promise(r => setTimeout(r, 300));
+      startRecognition();
+    }
   }
 
   function enqueueTts(sentence) {
@@ -389,8 +396,7 @@ async function handleSpeechInput(text) {
     while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive && !ttsAborted) {
       await new Promise(r => setTimeout(r, 200));
     }
-    stopInterruptDetector();
-    if (voiceActive && !ttsAborted) startRecognition();
+    // drainTtsQueue 已自行处理 300ms 延时 + 重启识别
   } catch (e) {
     console.error('Stacy 请求失败:', e);
     if (!ttsAborted) {
@@ -398,7 +404,6 @@ async function handleSpeechInput(text) {
       appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
     }
     saveLog(text, '');
-    stopInterruptDetector();
     if (voiceActive) startRecognition();
   }
 }
