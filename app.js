@@ -151,7 +151,7 @@ let sttStream = null;        // MediaStream
 let sttAudioCtx = null;      // AudioContext
 let sttProcessor = null;     // ScriptProcessorNode
 let sttWs = null;            // WebSocket
-let sttFinalText = '';       // 累积的最终识别结果
+let sttWords = [];             // wpgs 词数组
 let sttFrameSent = 0;        // 已发送音频帧数
 
 // 鉴权
@@ -187,13 +187,16 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-function extractSttText(result) {
-  if (!result?.ws) return '';
-  let text = '';
-  for (const seg of result.ws) {
-    if (seg.cw) for (const w of seg.cw) text += w.w || '';
+// wpgs 模式词数组（按位置替换，避免重复拼接）
+
+function applyWpgsResult(result) {
+  if (!result?.ws || !result?.rg) return;
+  const rg = result.rg; // [start, end]
+  for (let i = 0; i < result.ws.length; i++) {
+    const idx = rg[0] + i;
+    const w = result.ws[i]?.cw?.[0]?.w || '';
+    sttWords[idx] = w;
   }
-  return text;
 }
 
 // ── 开始录音（建 WS + 开麦）───────────────────
@@ -208,7 +211,7 @@ async function startRecording() {
     const wsUrl = await buildSttWsUrl();
     console.log('[IAT] 鉴权完成, 连接 WS...');
     sttWs = new WebSocket(wsUrl);
-    sttFinalText = '';
+    sttWords = [];
     sttFrameSent = 0;
 
     sttWs.onopen = async () => {
@@ -266,26 +269,26 @@ async function startRecording() {
           return;
         }
         if (msg.data?.result) {
-          const text = extractSttText(msg.data.result);
-          if (text) {
-            sttFinalText += text;  // 累加，不覆盖
-            console.log('[IAT] 实时累加:', text, '→ 当前:', sttFinalText);
-          }
+          applyWpgsResult(msg.data.result);
+          const current = sttWords.join('');
+          console.log('[IAT] wpgs 更新, rg:', msg.data.result.rg, '→ 当前:', current);
         }
         if (msg.data?.status === 2) {
-          console.log('[IAT] 最终识别文字:', sttFinalText);
+          const finalText = sttWords.join('');
+          console.log('[IAT] 最终识别文字:', finalText);
           console.log('[IAT] 共发送', sttFrameSent, '帧');
           cleanupStt();
 
-          if (!sttFinalText || sttFinalText.trim() === '') {
-            console.log('[IAT] 最终文字为空，不发送给 AI');
+          const cleaned = finalText.replace(/[。，！？、\s]+$/g, '').trim();
+          if (!cleaned) {
+            console.log('[IAT] 去标点后为空，不发送给 AI');
             if (voiceActive) appendBubble('ai', '没有听清，请再说一次 🌙');
             return;
           }
-          console.log('[IAT] 识别成功，发送给 AI:', sttFinalText.trim());
+          console.log('[IAT] 识别成功，发送给 AI:', cleaned);
           if (voiceActive) {
             abortAllTts();
-            handleSpeechInput(sttFinalText.trim());
+            handleSpeechInput(cleaned);
           }
         }
       } catch {}
