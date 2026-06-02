@@ -221,7 +221,8 @@ function abortAllTts() {
   window.speechSynthesis.cancel();
 }
 
-// ── 打断检测（TTS 播放时后台监听用户说话）─────────
+// ── 打断检测器（TTS 播放时专门监听用户开口）─────────
+// 只用 onspeechstart，不做语音转文字，触发后切回主识别器
 
 function startInterruptDetector() {
   if (!SpeechRecognition) return;
@@ -233,23 +234,13 @@ function startInterruptDetector() {
   interruptRecognizer.interimResults = false;
 
   interruptRecognizer.onspeechstart = () => {
-    // 只有不在播放态时才认为是用户说话
-    if (isSpeaking) return;
-    console.log('[INTERRUPT] 检测到用户说话，打断 TTS');
-    abortAllTts();
-    isSpeaking = false;
-    stopInterruptDetector();
-  };
-
-  interruptRecognizer.onresult = (event) => {
-    const text = event.results[0][0].transcript.trim();
-    console.log('[INTERRUPT] 识别结果:', text);
-    if (!text || !voiceActive) return;
+    console.log('[INTERRUPT] onspeechstart — 用户开口，打断 TTS');
     stopInterruptDetector();
     abortAllTts();
     isSpeaking = false;
     currentTtsQueue = null;
-    handleSpeechInput(text);
+    // 启动主识别器来捕获用户说的话
+    if (voiceActive) startRecognition();
   };
 
   interruptRecognizer.onerror = (e) => {
@@ -296,9 +287,8 @@ function startRecognition() {
   recognition.onresult = async (event) => {
     const text = event.results[0][0].transcript.trim();
     console.log('[STT] 识别结果:', text);
-    if (!text || isSpeaking) return;
+    if (!text) return;
 
-    // 用户开口说话了 → 停止当前 TTS
     abortAllTts();
     handleSpeechInput(text);
   };
