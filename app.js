@@ -118,22 +118,13 @@ document.getElementById('user-input').addEventListener('keydown', e => {
 
 const voiceBtn = document.getElementById('voice-btn');
 const voiceIcon = document.getElementById('voice-icon');
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-let recognition = null;
 let voiceActive = false;
-let isSpeaking = false;        // 全局：TTS 正在播放中，禁止识别
+let isSpeaking = false;        // TTS 正在播放中，禁止 STT
 let currentAudio = null;
-let currentTtsQueue = null;    // 当前 TTS 队列引用，用于清空
+let currentTtsQueue = null;
 
 // ── 麦克风按钮图标切换 ────────────────────────
-
-/*
-  麦克风按钮三种状态：
-  voice-active:          通话中，正在听（橙色脉冲）
-  voice-speaking:        AI 正在读，点此打断（红色，stop 图标）
-  无 class / voice-ended: 空闲/挂断
-*/
 
 const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
 const STOP_ICON = `<rect x="6" y="6" width="12" height="12" rx="2"/>`;
@@ -141,6 +132,255 @@ const STOP_ICON = `<rect x="6" y="6" width="12" height="12" rx="2"/>`;
 function setMicIcon(type) {
   if (!voiceIcon) return;
   voiceIcon.innerHTML = type === 'stop' ? STOP_ICON : MIC_ICON;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 讯飞 STT（语音听写）────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+const STT_CREDS = {
+  appId: '08c139a2',
+  apiKey: '066b43f2c74d2c4c82fb60f4754f676b',
+  apiSecret: 'NWI5YWRjODE1OTMwYjE2MjFjZTNlOWYw',
+};
+
+let sttStream = null;          // MediaStream
+let sttAudioCtx = null;        // AudioContext
+let sttProcessor = null;       // ScriptProcessorNode
+let sttWs = null;              // WebSocket
+let sttResults = '';           // 累积识别结果
+let sttLastResultTime = 0;     // 最后一次收到结果的时间戳
+let sttSilenceTimer = null;    // 静音检测定时器
+let sttActive = false;         // STT 是否正在运行
+let sttAutoRestart = true;     // 无结果时是否自动重启
+
+// 鉴权 URL 生成（与 TTS 相同签算方式）
+async function buildSttWsUrl() {
+  const host = 'iat-api.xfyun.cn';
+  const date = new Date().toUTCString();
+  const signOrigin = `host: ${host}\ndate: ${date}\nGET /v2/iat HTTP/1.1`;
+
+  const key = await crypto.subtle.importKey('raw',
+    new TextEncoder().encode(STT_CREDS.apiSecret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sigRaw = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signOrigin));
+  const signature = btoa(String.fromCharCode(...new Uint8Array(sigRaw)));
+
+  const authOrigin = `api_key="${STT_CREDS.apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+  const authorization = btoa(authOrigin);
+
+  return `wss://${host}/v2/iat?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${host}`;
+}
+
+// Float32Array → Int16Array（AudioContext 输出 → 讯飞 PCM 格式）
+function float32ToInt16(float32) {
+  const int16 = new Int16Array(float32.length);
+  for (let i = 0; i < float32.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32[i]));
+    int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return int16;
+}
+
+// ArrayBuffer → Base64
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+// 从讯飞返回的 result 中提取文字
+function extractSttText(result) {
+  if (!result?.ws) return '';
+  let text = '';
+  for (const seg of result.ws) {
+    if (seg.cw) {
+      for (const w of seg.cw) {
+        text += w.w || '';
+      }
+    }
+  }
+  return text;
+}
+
+// 清理 STT 所有资源
+function cleanupStt() {
+  sttActive = false;
+  if (sttSilenceTimer) { clearInterval(sttSilenceTimer); sttSilenceTimer = null; }
+  if (sttProcessor) {
+    try { sttProcessor.disconnect(); } catch {}
+    sttProcessor = null;
+  }
+  if (sttAudioCtx) {
+    try { sttAudioCtx.close(); } catch {}
+    sttAudioCtx = null;
+  }
+  if (sttStream) {
+    sttStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    sttStream = null;
+  }
+  if (sttWs) {
+    try { sttWs.close(); } catch {}
+    sttWs = null;
+  }
+  voiceBtn.classList.remove('voice-active');
+  setMicIcon('mic');
+}
+
+// 发送结束帧
+function sendSttEnd() {
+  if (!sttWs || sttWs.readyState !== WebSocket.OPEN) return;
+  sttWs.send(JSON.stringify({
+    data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+  }));
+}
+
+// ── 启动 STT ──────────────────────────────────
+
+async function startRecognition() {
+  if (isSpeaking) {
+    console.log('[STT] isSpeaking=true，跳过启动');
+    return;
+  }
+  if (sttActive) {
+    console.log('[STT] 已在运行');
+    return;
+  }
+  console.log('[STT] startRecognition 开始');
+
+  // 清除前一次残留
+  cleanupStt();
+  sttResults = '';
+  sttActive = true;
+
+  try {
+    // 鉴权 + 建 WebSocket
+    const wsUrl = await buildSttWsUrl();
+    sttWs = new WebSocket(wsUrl);
+
+    sttWs.onopen = () => {
+      console.log('[STT] WS 已连接');
+      // 发送参数帧（status:0）
+      sttWs.send(JSON.stringify({
+        common: { app_id: STT_CREDS.appId },
+        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 3000 },
+        data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
+      }));
+    };
+
+    sttWs.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.code !== 0) {
+          console.warn('[STT] 讯飞错误:', msg.code, msg.message);
+          return;
+        }
+
+        // 提取识别文字
+        if (msg.data?.result) {
+          const text = extractSttText(msg.data.result);
+          if (text) {
+            sttResults = text;
+            sttLastResultTime = Date.now();
+            console.log('[STT] 实时:', text);
+          }
+        }
+
+        // status:2 = 最终结果
+        if (msg.data?.status === 2) {
+          console.log('[STT] 最终结果:', sttResults);
+          const finalText = sttResults.trim();
+          cleanupStt();
+          sttResults = '';
+
+          if (finalText && voiceActive) {
+            abortAllTts();
+            handleSpeechInput(finalText);
+          } else if (voiceActive) {
+            // 没检测到语音，自动重启
+            console.log('[STT] 无语音输入，重启监听');
+            startRecognition();
+          }
+        }
+      } catch (ex) {
+        console.warn('[STT] 消息解析失败:', ex);
+      }
+    };
+
+    sttWs.onerror = (e) => {
+      console.error('[STT] WS 错误');
+      cleanupStt();
+      if (voiceActive && !isSpeaking) {
+        appendBubble('ai', '语音识别连接失败，请重试 🌙');
+      }
+    };
+
+    sttWs.onclose = () => {
+      console.log('[STT] WS 关闭');
+    };
+
+    // ── 获取麦克风 + AudioContext ──
+    sttStream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    });
+    sttAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const source = sttAudioCtx.createMediaStreamSource(sttStream);
+
+    // ScriptProcessor: 4096 样本 ≈ 256ms/帧（接近 200ms 需求）
+    sttProcessor = sttAudioCtx.createScriptProcessor(4096, 1, 1);
+
+    sttProcessor.onaudioprocess = (e) => {
+      if (!sttWs || sttWs.readyState !== WebSocket.OPEN) return;
+      const inputData = e.inputBuffer.getChannelData(0);
+      const int16 = float32ToInt16(inputData);
+      const base64 = arrayBufferToBase64(int16.buffer);
+      sttWs.send(JSON.stringify({
+        data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 }
+      }));
+    };
+
+    source.connect(sttProcessor);
+    sttProcessor.connect(sttAudioCtx.destination);
+
+    sttLastResultTime = Date.now();
+
+    // 静音检测：每 500ms 检查，连续 1.5s 无新结果 → 自动停止
+    sttSilenceTimer = setInterval(() => {
+      if (!sttActive) return;
+      const elapsed = Date.now() - sttLastResultTime;
+      if (elapsed > 1500) {
+        console.log('[STT] 静音 ' + Math.round(elapsed / 1000) + 's，发送结束帧');
+        sendSttEnd();
+        clearInterval(sttSilenceTimer);
+        sttSilenceTimer = null;
+      }
+    }, 500);
+
+    voiceBtn.classList.add('voice-active');
+    setMicIcon('mic');
+    console.log('[STT] 录音已启动，等待语音...');
+
+  } catch (e) {
+    console.error('[STT] 启动失败:', e);
+    cleanupStt();
+    if (e.name === 'NotAllowedError') {
+      appendBubble('ai', '需要麦克风权限才能语音对话，请在浏览器设置中允许 🌙');
+    } else {
+      appendBubble('ai', '语音识别启动失败，请重试 🌙');
+    }
+  }
+}
+
+// ── 停止 STT（打断/挂断用）────────────────────
+
+function stopStt() {
+  console.log('[STT] 停止 STT');
+  if (sttWs && sttWs.readyState === WebSocket.OPEN) {
+    try { sendSttEnd(); } catch {}
+  }
+  cleanupStt();
+  sttResults = '';
 }
 
 // ── 数字 → 中文转换（TTS 前预处理）────────────────────
@@ -216,8 +456,8 @@ async function fetchTtsBlob(text) {
 async function playTtsBlob(blob) {
   if (!blob || !voiceActive) return;
   voiceBtn.classList.add('voice-speaking');
-  voiceBtn.classList.add('voice-active');          // 保持脉冲
-  setMicIcon('stop');                                // 切换为 stop 图标
+  voiceBtn.classList.add('voice-active');
+  setMicIcon('stop');
   try {
     const objUrl = URL.createObjectURL(blob);
     currentAudio = new Audio(objUrl);
@@ -229,8 +469,8 @@ async function playTtsBlob(blob) {
     });
   } finally {
     voiceBtn.classList.remove('voice-speaking');
-    voiceBtn.classList.remove('voice-active');      // 去掉脉冲
-    setMicIcon('mic');                                // 恢复麦克风图标
+    voiceBtn.classList.remove('voice-active');
+    setMicIcon('mic');
   }
 }
 
@@ -245,53 +485,6 @@ function abortAllTts() {
   setMicIcon('mic');
 }
 
-// ── 语音识别 ─────────────────────────────────
-
-function startRecognition() {
-  if (isSpeaking) {
-    console.log('[STT] isSpeaking=true，跳过启动识别');
-    return;
-  }
-  console.log('[STT] startRecognition 被调用');
-
-  if (!SpeechRecognition) {
-    appendBubble('ai', '当前浏览器不支持语音，请用 Chrome 打开 🌙');
-    return;
-  }
-
-  if (recognition) {
-    try { recognition.abort(); } catch {}
-    recognition = null;
-  }
-
-  recognition = new SpeechRecognition();
-  recognition.lang = 'zh-CN';
-  recognition.interimResults = false;
-  recognition.continuous = false;
-
-  recognition.onresult = async (event) => {
-    const text = event.results[0][0].transcript.trim();
-    console.log('[STT] 识别结果:', text);
-    if (!text) return;
-
-    abortAllTts();
-    handleSpeechInput(text);
-  };
-
-  recognition.onerror = (e) => {
-    console.warn('[STT] 错误:', e.error);
-    if (e.error === 'no-speech' && voiceActive && !isSpeaking) {
-      startRecognition();
-    } else if (e.error === 'aborted') {
-      // 手动停止，预期行为
-    } else {
-      if (voiceActive) startRecognition();
-    }
-  };
-
-  try { recognition.start(); } catch (e) { console.warn('[STT] start 失败:', e); }
-}
-
 // ── 处理语音输入 ──────────────────────────────
 
 async function handleSpeechInput(text) {
@@ -301,23 +494,17 @@ async function handleSpeechInput(text) {
 
   const aiBubble = createStreamingBubble();
 
-  // TTS 队列：存 { promise, sentence } — promise 在入队时立刻发起 fetch
   const ttsQueue = [];
   currentTtsQueue = ttsQueue;
   let ttsProcessing = false;
 
-  // ── 播放器：从队列取 blob promise，依次播放 ──
   async function drainTtsQueue() {
     if (ttsProcessing) return;
     console.log('[TTS] drainTtsQueue 开始, 队列:', ttsQueue.length);
 
-    // 进入播放态：关识别，设标志
     isSpeaking = true;
-    if (recognition) {
-      try { recognition.abort(); } catch {}
-      recognition = null;
-    }
-    console.log('[TTS] isSpeaking=true, recognition 已 abort');
+    stopStt();  // 停止 STT 录音
+    console.log('[TTS] isSpeaking=true, STT 已停止');
 
     ttsProcessing = true;
 
@@ -339,14 +526,12 @@ async function handleSpeechInput(text) {
     currentTtsQueue = null;
     ttsProcessing = false;
 
-    // 退出播放态：清标志，等 50ms 重启识别
     isSpeaking = false;
-    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 50ms 后重启识别');
+    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 50ms 后重启 STT');
     await new Promise(r => setTimeout(r, 50));
     if (voiceActive) startRecognition();
   }
 
-  // ── 入队：立刻发起 TTS 请求 ──
   function enqueueTts(sentence) {
     console.log('[TTS] enqueueTts+预加载:', sentence.slice(0, 20));
     const promise = fetchTtsBlob(sentence);
@@ -386,11 +571,8 @@ async function handleSpeechInput(text) {
 function stopVoice() {
   voiceActive = false;
   isSpeaking = false;
+  stopStt();
   abortAllTts();
-  if (recognition) {
-    try { recognition.abort(); } catch {}
-    recognition = null;
-  }
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
   setMicIcon('mic');
 }
@@ -401,7 +583,6 @@ function interruptSpeaking() {
   console.log('[INTERRUPT] 手动打断 TTS');
   abortAllTts();
   currentTtsQueue = null;
-  if (recognition) { try { recognition.abort(); } catch {} }
   isSpeaking = false;
   if (voiceActive) startRecognition();
 }
@@ -423,18 +604,9 @@ voiceBtn.addEventListener('click', async () => {
     return;
   }
 
-  // 空闲 → 开启通话
-  try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch {
-    appendBubble('ai', '需要麦克风权限才能语音对话，请在浏览器设置中允许 🌙');
-    return;
-  }
-
+  // 空闲 → 开启通话（STT 内部会请求麦克风）
   voiceActive = true;
   isSpeaking = false;
-  voiceBtn.classList.add('voice-active');
-  setMicIcon('mic');
   appendBubble('ai', '语音已接通，请说话吧 🌙');
   startRecognition();
 });
