@@ -268,8 +268,8 @@ async function startRecording() {
         if (msg.data?.result) {
           const text = extractSttText(msg.data.result);
           if (text) {
-            sttFinalText = text;
-            console.log('[IAT] 实时识别:', text);
+            sttFinalText += text;  // 累加，不覆盖
+            console.log('[IAT] 实时累加:', text, '→ 当前:', sttFinalText);
           }
         }
         if (msg.data?.status === 2) {
