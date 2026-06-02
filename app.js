@@ -258,11 +258,14 @@ async function stopRecordingAndRecognize() {
 
   try {
     // 鉴权 + 建 WebSocket
+    console.log('[IAT] 开始鉴权...');
     const wsUrl = await buildSttWsUrl();
+    console.log('[IAT] WS URL 已生成, 连接中...');
     const ws = new WebSocket(wsUrl);
     let finalText = '';
 
     ws.onopen = () => {
+      console.log('[IAT] WebSocket 已连接');
       console.log('[STT] WS 已连接，发送录音...');
       // 参数帧
       ws.send(JSON.stringify({
@@ -270,10 +273,12 @@ async function stopRecordingAndRecognize() {
         business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 5000 },
         data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
       }));
+      console.log('[IAT] 发送参数帧');
 
       // 流式发送所有缓存的 PCM 帧
       for (let i = 0; i < sttChunks.length; i++) {
         const base64 = arrayBufferToBase64(sttChunks[i].buffer);
+        console.log('[IAT] 发送音频帧', sttChunks[i].byteLength, 'bytes');
         ws.send(JSON.stringify({
           data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 }
         }));
@@ -283,10 +288,11 @@ async function stopRecordingAndRecognize() {
       ws.send(JSON.stringify({
         data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
       }));
-      console.log('[STT] 全部 ' + sttChunks.length + ' 帧已发送');
+      console.log('[IAT] 发送结束帧, 全部 ' + sttChunks.length + ' 帧已发送');
     };
 
     ws.onmessage = (e) => {
+      console.log('[IAT] 收到消息', e.data.slice(0, 500));
       try {
         const msg = JSON.parse(e.data);
         if (msg.code !== 0) {
@@ -314,11 +320,16 @@ async function stopRecordingAndRecognize() {
       } catch {}
     };
 
-    ws.onerror = () => {
+    ws.onerror = (event) => {
+      console.log('[IAT] 错误', event);
       console.error('[STT] WS 错误');
       voiceBtn.classList.remove('voice-active');
       setMicIcon('mic');
       appendBubble('ai', '语音识别连接失败，请重试 🌙');
+    };
+
+    ws.onclose = (event) => {
+      console.log('[IAT] WS 关闭, code=' + event.code + ' reason=' + event.reason);
     };
 
   } catch (e) {
