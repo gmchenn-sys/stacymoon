@@ -314,6 +314,7 @@ async function handleSpeechInput(text) {
       }
 
       if (voiceActive && isSpeaking && ttsQueue.length > 0) {
+        console.log('[TTS] 句子间停顿 30ms');
         await new Promise(r => setTimeout(r, 30));
       }
 
@@ -328,10 +329,10 @@ async function handleSpeechInput(text) {
     currentTtsQueue = null;
     ttsProcessing = false;
 
-    // ── 退出播放态：清标志，等 500ms 重启识别 ──
+    // ── 退出播放态：清标志，等 50ms 重启识别 ──
     isSpeaking = false;
-    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 500ms 后重启识别');
-    await new Promise(r => setTimeout(r, 500));
+    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 50ms 后重启识别');
+    await new Promise(r => setTimeout(r, 50));
     if (voiceActive) startRecognition();
   }
 
