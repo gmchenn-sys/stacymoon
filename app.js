@@ -445,16 +445,31 @@ function cleanTtsText(text) {
 
 async function fetchTtsBlob(text) {
   const clean = cleanTtsText(text);
-  if (!clean) return null;
+  if (!clean) { console.log('[TTS] fetchTtsBlob: 文本为空'); return null; }
+  console.log('[TTS] fetchTtsBlob 请求:', clean.slice(0, 30));
   try {
     const res = await fetch(`/api/tts?text=${encodeURIComponent(clean)}`);
-    if (res.ok) return await res.blob();
-  } catch {}
+    console.log('[TTS] fetchTtsBlob HTTP', res.status, 'content-type:', res.headers.get('content-type'));
+    if (res.ok) {
+      const blob = await res.blob();
+      console.log('[TTS] fetchTtsBlob blob:', blob.size, 'bytes, type:', blob.type);
+      return blob;
+    } else {
+      const errText = await res.text();
+      console.log('[TTS] fetchTtsBlob 失败响应:', errText.slice(0, 200));
+    }
+  } catch (e) {
+    console.log('[TTS] fetchTtsBlob 网络错误:', e.message);
+  }
   return null;
 }
 
 async function playTtsBlob(blob) {
-  if (!blob || !voiceActive) return;
+  if (!blob || !voiceActive) {
+    console.log('[TTS] playTtsBlob 跳过, blob:', !!blob, 'voiceActive:', voiceActive);
+    return;
+  }
+  console.log('[TTS] playTtsBlob blob size:', blob.size, 'type:', blob.type);
   voiceBtn.classList.add('voice-speaking');
   voiceBtn.classList.add('voice-active');
   setMicIcon('stop');
@@ -462,7 +477,16 @@ async function playTtsBlob(blob) {
     const objUrl = URL.createObjectURL(blob);
     currentAudio = new Audio(objUrl);
     currentAudio.volume = 1.0;
-    await currentAudio.play();
+    console.log('[TTS] 准备播放', objUrl);
+    try {
+      await currentAudio.play();
+      console.log('[TTS] 播放成功');
+    } catch (playErr) {
+      console.log('[TTS] 播放失败', playErr.name, playErr.message);
+      URL.revokeObjectURL(objUrl);
+      currentAudio = null;
+      throw playErr;
+    }
     await new Promise(r => {
       currentAudio.onended = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
       currentAudio.onerror = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
