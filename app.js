@@ -121,32 +121,55 @@ let recognition = null;
 let voiceActive = false;
 let currentAudio = null;
 
-async function speakText(text) {
-  if (!voiceActive) return;
-  const clean = text.replace(/[^一-龥a-zA-Z0-9，。！？、：；]/g, '').slice(0, 150);
-  voiceBtn.classList.add('voice-speaking');
+// ── TTS 工具：分离请求与播放，支持预加载 ────────────
 
-  // 优先尝试远程讯飞 TTS（部署后可用）
-  let played = false;
+function cleanTtsText(text) {
+  if (!text) return '';
+  return text.replace(/[^一-龥a-zA-Z0-9，。！？、：；]/g, '').slice(0, 150);
+}
+
+async function fetchTtsBlob(text) {
+  const clean = cleanTtsText(text);
+  if (!clean) return null;
   try {
     const res = await fetch(`/api/tts?text=${encodeURIComponent(clean)}`);
-    if (res.ok) {
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      currentAudio = new Audio(objUrl);
-      currentAudio.volume = 1.0;
-      await currentAudio.play();
-      await new Promise(r => {
-        currentAudio.onended = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
-        currentAudio.onerror = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
-      });
+    if (res.ok) return await res.blob();
+  } catch {}
+  return null;
+}
+
+async function playTtsBlob(blob) {
+  if (!blob || !voiceActive) return;
+  voiceBtn.classList.add('voice-speaking');
+  try {
+    const objUrl = URL.createObjectURL(blob);
+    currentAudio = new Audio(objUrl);
+    currentAudio.volume = 1.0;
+    await currentAudio.play();
+    await new Promise(r => {
+      currentAudio.onended = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
+      currentAudio.onerror = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
+    });
+  } finally {
+    voiceBtn.classList.remove('voice-speaking');
+  }
+}
+
+// 兼容旧接口（打字模式 + fallback）
+async function speakText(text) {
+  if (!voiceActive) return;
+  const clean = cleanTtsText(text);
+  voiceBtn.classList.add('voice-speaking');
+
+  let played = false;
+  try {
+    const blob = await fetchTtsBlob(clean);
+    if (blob) {
+      await playTtsBlob(blob);
       played = true;
     }
-  } catch {
-    // `/api/tts` 本地不可用（404/网络错误），静默回退
-  }
+  } catch {}
 
-  // 回退：浏览器内置 speechSynthesis
   if (!played && voiceActive) {
     await new Promise(r => {
       const utter = new SpeechSynthesisUtterance(clean);
@@ -185,16 +208,32 @@ function startRecognition() {
     // 创建流式 AI 气泡（边生成边显示）
     const aiBubble = createStreamingBubble();
 
-    // TTS 句子队列 — 检测到完整句子立即排队播放
+    // TTS 句子队列 — 预加载下一句，消除句子间停顿
     const ttsQueue = [];
     let ttsProcessing = false;
 
     async function drainTtsQueue() {
       if (ttsProcessing) return;
       ttsProcessing = true;
+
+      let prefetchedBlob = null;
       while (ttsQueue.length > 0 && voiceActive) {
         const sentence = ttsQueue.shift();
-        await speakText(sentence);
+
+        // 提前请求下一句的 TTS 音频（当前句播放时并行下载）
+        const nextPrefetch = ttsQueue.length > 0
+          ? fetchTtsBlob(ttsQueue[0])
+          : Promise.resolve(null);
+
+        // 播放当前句（用预加载好的 blob，跳过网络请求）
+        if (prefetchedBlob) {
+          await playTtsBlob(prefetchedBlob);
+        } else {
+          await speakText(sentence);
+        }
+
+        // 下一句已下载完毕，循环中立刻播放
+        prefetchedBlob = await nextPrefetch;
       }
       ttsProcessing = false;
     }
