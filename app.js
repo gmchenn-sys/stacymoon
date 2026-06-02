@@ -216,7 +216,7 @@ async function startRecording() {
       // 发送参数帧
       sttWs.send(JSON.stringify({
         common: { app_id: STT_CREDS.appId },
-        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 5000 },
+        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', aue: 'raw', auf: 'audio/L16;rate=16000', vad_eos: 5000 },
         data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
       }));
       console.log('[IAT] 参数帧已发送');
