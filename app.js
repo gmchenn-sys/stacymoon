@@ -124,6 +124,7 @@ let voiceActive = false;
 let isSpeaking = false;        // 全局：TTS 正在播放中，禁止识别
 let currentAudio = null;
 let currentTtsQueue = null;    // 当前 TTS 队列引用，用于清空
+let interruptRecognizer = null; // 打断检测器
 
 // ── 数字 → 中文转换（TTS 前预处理）────────────────────
 
@@ -220,6 +221,53 @@ function abortAllTts() {
   window.speechSynthesis.cancel();
 }
 
+// ── 打断检测（TTS 播放时后台监听用户说话）─────────
+
+function startInterruptDetector() {
+  if (!SpeechRecognition) return;
+  stopInterruptDetector();
+
+  interruptRecognizer = new SpeechRecognition();
+  interruptRecognizer.lang = 'zh-CN';
+  interruptRecognizer.continuous = false;
+  interruptRecognizer.interimResults = false;
+
+  interruptRecognizer.onspeechstart = () => {
+    // 只有不在播放态时才认为是用户说话
+    if (isSpeaking) return;
+    console.log('[INTERRUPT] 检测到用户说话，打断 TTS');
+    abortAllTts();
+    isSpeaking = false;
+    stopInterruptDetector();
+  };
+
+  interruptRecognizer.onresult = (event) => {
+    const text = event.results[0][0].transcript.trim();
+    console.log('[INTERRUPT] 识别结果:', text);
+    if (!text || !voiceActive) return;
+    stopInterruptDetector();
+    abortAllTts();
+    isSpeaking = false;
+    currentTtsQueue = null;
+    handleSpeechInput(text);
+  };
+
+  interruptRecognizer.onerror = (e) => {
+    if (e.error === 'no-speech' && voiceActive && isSpeaking) {
+      try { interruptRecognizer.start(); } catch {}
+    }
+  };
+
+  try { interruptRecognizer.start(); } catch (e) { console.warn('[INTERRUPT] start 失败:', e); }
+}
+
+function stopInterruptDetector() {
+  if (interruptRecognizer) {
+    try { interruptRecognizer.abort(); } catch {}
+    interruptRecognizer = null;
+  }
+}
+
 // ── 语音识别 ─────────────────────────────────
 
 function startRecognition() {
@@ -288,13 +336,14 @@ async function handleSpeechInput(text) {
     if (ttsProcessing) return;
     console.log('[TTS] drainTtsQueue 开始, 队列:', ttsQueue.length);
 
-    // 进入播放态：关识别，设标志
+    // 进入播放态：关识别，设标志，启动打断检测
     isSpeaking = true;
     if (recognition) {
       try { recognition.abort(); } catch {}
       recognition = null;
     }
-    console.log('[TTS] isSpeaking=true, recognition 已 abort');
+    startInterruptDetector();
+    console.log('[TTS] isSpeaking=true, recognition 已 abort, 打断检测已启动');
 
     ttsProcessing = true;
 
@@ -317,7 +366,8 @@ async function handleSpeechInput(text) {
     currentTtsQueue = null;
     ttsProcessing = false;
 
-    // 退出播放态：清标志，等 50ms 重启识别
+    // 退出播放态：清标志，关打断检测，等 50ms 重启识别
+    stopInterruptDetector();
     isSpeaking = false;
     console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 50ms 后重启识别');
     await new Promise(r => setTimeout(r, 50));
@@ -356,6 +406,7 @@ async function handleSpeechInput(text) {
     appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
     saveLog(text, '');
     // 出错也要恢复
+    stopInterruptDetector();
     isSpeaking = false;
     if (voiceActive) startRecognition();
   }
@@ -366,6 +417,7 @@ async function handleSpeechInput(text) {
 function stopVoice() {
   voiceActive = false;
   isSpeaking = false;
+  stopInterruptDetector();
   abortAllTts();
   if (recognition) {
     try { recognition.abort(); } catch {}
