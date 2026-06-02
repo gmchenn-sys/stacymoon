@@ -278,16 +278,17 @@ async function handleSpeechInput(text) {
 
   const aiBubble = createStreamingBubble();
 
-  // TTS 句子队列
+  // TTS 队列：存 { promise, sentence } — promise 在入队时立刻发起 fetch
   const ttsQueue = [];
   currentTtsQueue = ttsQueue;
   let ttsProcessing = false;
 
+  // ── 播放器：从队列取 blob promise，依次播放 ──
   async function drainTtsQueue() {
     if (ttsProcessing) return;
     console.log('[TTS] drainTtsQueue 开始, 队列:', ttsQueue.length);
 
-    // ── 进入播放态：关识别，设标志 ──
+    // 进入播放态：关识别，设标志
     isSpeaking = true;
     if (recognition) {
       try { recognition.abort(); } catch {}
@@ -296,49 +297,38 @@ async function handleSpeechInput(text) {
     console.log('[TTS] isSpeaking=true, recognition 已 abort');
 
     ttsProcessing = true;
-    let prefetchedBlob = null;
 
     while (ttsQueue.length > 0 && voiceActive && isSpeaking) {
-      const sentence = ttsQueue.shift();
-      console.log('[TTS] 播放:', sentence.slice(0, 20), '剩余:', ttsQueue.length);
+      const item = ttsQueue.shift();
+      console.log('[TTS] 播放:', item.sentence.slice(0, 20), '剩余:', ttsQueue.length);
 
-      const nextFetch = ttsQueue.length > 0
-        ? fetchTtsBlob(ttsQueue[0])
-        : Promise.resolve(null);
-
-      if (prefetchedBlob) {
-        await playTtsBlob(prefetchedBlob);
-      } else {
-        const blob = await fetchTtsBlob(sentence);
-        if (blob) await playTtsBlob(blob);
+      // 等待当前句的 blob（可能已提前下载好，也可能还在下载）
+      const blob = await item.promise;
+      if (blob && voiceActive && isSpeaking) {
+        await playTtsBlob(blob);
       }
 
       if (voiceActive && isSpeaking && ttsQueue.length > 0) {
         console.log('[TTS] 句子间停顿 30ms');
         await new Promise(r => setTimeout(r, 30));
       }
-
-      prefetchedBlob = await nextFetch;
-    }
-
-    // 播放最后的预加载块
-    if (prefetchedBlob && isSpeaking && voiceActive) {
-      await playTtsBlob(prefetchedBlob);
     }
 
     currentTtsQueue = null;
     ttsProcessing = false;
 
-    // ── 退出播放态：清标志，等 50ms 重启识别 ──
+    // 退出播放态：清标志，等 50ms 重启识别
     isSpeaking = false;
     console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 50ms 后重启识别');
     await new Promise(r => setTimeout(r, 50));
     if (voiceActive) startRecognition();
   }
 
+  // ── 入队：立刻发起 TTS 请求 ──
   function enqueueTts(sentence) {
-    console.log('[TTS] enqueueTts:', sentence.slice(0, 20));
-    ttsQueue.push(sentence);
+    console.log('[TTS] enqueueTts+预加载:', sentence.slice(0, 20));
+    const promise = fetchTtsBlob(sentence);
+    ttsQueue.push({ sentence, promise });
     drainTtsQueue();
   }
 
