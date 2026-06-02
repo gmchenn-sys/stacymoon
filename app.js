@@ -112,20 +112,24 @@ document.getElementById('user-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') sendMessage();
 });
 
-// ── Web Speech API 语音对话（打电话式）────────────────────────
+// ═══════════════════════════════════════════════════════════
+// ── 语音对话（打电话式）─────────────────────────
+// ═══════════════════════════════════════════════════════════
+
 const voiceBtn = document.getElementById('voice-btn');
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let recognition = null;
 let voiceActive = false;
+let isSpeaking = false;        // 全局：TTS 正在播放中，禁止识别
 let currentAudio = null;
+let currentTtsQueue = null;    // 当前 TTS 队列引用，用于清空
 
 // ── 数字 → 中文转换（TTS 前预处理）────────────────────
 
 const DIGIT_MAP = { '0':'零','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九' };
 
 function numToCN(n) {
-  // n 是整数，0-9999
   if (n === 0) return '零';
   let s = '';
   const thousands = Math.floor(n / 1000);
@@ -144,7 +148,6 @@ function numToCN(n) {
 }
 
 function decimalToCN(s) {
-  // "1.6" → "一点六", "0.5" → "零点五"
   const [int, dec] = s.split('.');
   let r = numToCN(parseInt(int));
   r += '点';
@@ -162,28 +165,25 @@ const UNIT_CN = {
 
 function normalizeTtsText(text) {
   if (!text) return '';
-  // 1) 数字范围 "200-400mg" → "两百到四百毫克"
   let result = text.replace(/(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)([a-zA-Z]*)/g, (_, a, b, unit) => {
     const cnA = a.includes('.') ? decimalToCN(a) : numToCN(parseInt(a));
     const cnB = b.includes('.') ? decimalToCN(b) : numToCN(parseInt(b));
     const cnUnit = unit ? (UNIT_CN[unit.toLowerCase()] || unit) : '';
     return cnA + '到' + cnB + cnUnit;
   });
-  // 2) 独立数字+单位 "30g" "200mg"（不跟在 "到" 后面，不在范围里）
   result = result.replace(/(?<![到\d])(\d+(?:\.\d+)?)([a-zA-Z]+)/g, (_, num, unit) => {
     const cn = num.includes('.') ? decimalToCN(num) : numToCN(parseInt(num));
     const cnUnit = UNIT_CN[unit.toLowerCase()] || unit;
     return cn + cnUnit;
   });
-  // 3) 去标点，限长
   return result.replace(/[^一-龥a-zA-Z0-9，。！？、：；到千百零一二三四五六七八九点]/g, '').slice(0, 150);
 }
 
 function cleanTtsText(text) {
-  if (!text) return '';
-  const normalized = normalizeTtsText(text);
-  return normalized;
+  return normalizeTtsText(text || '');
 }
+
+// ── TTS 请求/播放 ──────────────────────────────
 
 async function fetchTtsBlob(text) {
   const clean = cleanTtsText(text);
@@ -196,7 +196,7 @@ async function fetchTtsBlob(text) {
 }
 
 async function playTtsBlob(blob) {
-  if (!blob || !voiceActive || ttsAborted) return;
+  if (!blob || !voiceActive) return;
   voiceBtn.classList.add('voice-speaking');
   try {
     const objUrl = URL.createObjectURL(blob);
@@ -212,131 +212,95 @@ async function playTtsBlob(blob) {
   }
 }
 
-// ── TTS 打断机制 ─────────────────────────────
-
-let ttsAborted = false;
-let currentTtsQueue = null;
-let interruptRecognizer = null;
+// ── 停止所有 TTS ─────────────────────────────
 
 function abortAllTts() {
-  ttsAborted = true;
+  if (currentTtsQueue) { currentTtsQueue.length = 0; }
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   window.speechSynthesis.cancel();
-  if (currentTtsQueue) { currentTtsQueue.length = 0; }
-  if (interruptRecognizer) {
-    try { interruptRecognizer.abort(); } catch {}
-    interruptRecognizer = null;
-  }
 }
 
-function startInterruptDetector(onSpeech) {
-  if (!SpeechRecognition) return;
+// ── 语音识别 ─────────────────────────────────
 
-  interruptRecognizer = new SpeechRecognition();
-  interruptRecognizer.lang = 'zh-CN';
-  interruptRecognizer.continuous = false;
-  interruptRecognizer.interimResults = false;
+function startRecognition() {
+  if (isSpeaking) {
+    console.log('[STT] isSpeaking=true，跳过启动识别');
+    return;
+  }
+  console.log('[STT] startRecognition 被调用');
 
-  interruptRecognizer.onspeechstart = () => {
-    console.log('[INTERRUPT] 检测到用户开始说话，打断 TTS');
-    abortAllTts();
-  };
+  if (!SpeechRecognition) {
+    appendBubble('ai', '当前浏览器不支持语音，请用 Chrome 打开 🌙');
+    return;
+  }
 
-  interruptRecognizer.onresult = (event) => {
+  // 先确保旧的完全停止
+  if (recognition) {
+    try { recognition.abort(); } catch {}
+    recognition = null;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'zh-CN';
+  recognition.interimResults = false;
+  recognition.continuous = false;
+
+  recognition.onresult = async (event) => {
     const text = event.results[0][0].transcript.trim();
-    console.log('[INTERRUPT] 识别到打断语音:', text);
-    if (text && voiceActive) {
-      try { interruptRecognizer.abort(); } catch {}
-      interruptRecognizer = null;
-      onSpeech(text);
-    }
+    console.log('[STT] 识别结果:', text);
+    if (!text || isSpeaking) return;
+
+    // 用户开口说话了 → 停止当前 TTS
+    abortAllTts();
+    handleSpeechInput(text);
   };
 
-  interruptRecognizer.onerror = (e) => {
-    if (e.error === 'no-speech') {
-      // 没说话，继续监听
-      if (voiceActive && !ttsAborted && interruptRecognizer) {
-        try { interruptRecognizer.start(); } catch {}
-      }
-    }
-  };
-
-  try { interruptRecognizer.start(); } catch {}
-}
-
-function stopInterruptDetector() {
-  if (interruptRecognizer) {
-    try { interruptRecognizer.abort(); } catch {}
-    interruptRecognizer = null;
-  }
-}
-
-// 兼容旧接口（打字模式 + fallback）
-async function speakText(text) {
-  console.log('[TTS] speakText 被调用:', text.slice(0, 20));
-  if (!voiceActive || ttsAborted) return;
-  const clean = cleanTtsText(text);
-  console.log('[TTS] 清理后文本:', clean.slice(0, 30));
-  voiceBtn.classList.add('voice-speaking');
-
-  let played = false;
-  try {
-    const blob = await fetchTtsBlob(clean);
-    if (blob && !ttsAborted) {
-      console.log('[TTS] 播放 blob, size:', blob.size);
-      await playTtsBlob(blob);
-      played = true;
+  recognition.onerror = (e) => {
+    console.warn('[STT] 错误:', e.error);
+    if (e.error === 'no-speech' && voiceActive && !isSpeaking) {
+      startRecognition();
+    } else if (e.error === 'aborted') {
+      // 手动停止，预期行为
     } else {
-      console.log('[TTS] blob 为空或被中断');
+      if (voiceActive) startRecognition();
     }
-  } catch (e) {
-    console.error('[TTS] 播放异常:', e);
-  }
+  };
 
-  if (!played && voiceActive && !ttsAborted) {
-    console.log('[TTS] 回退到 speechSynthesis');
-    await new Promise(r => {
-      const utter = new SpeechSynthesisUtterance(clean);
-      utter.lang = 'zh-CN';
-      utter.rate = 1.0;
-      utter.volume = 1.0;
-      utter.onend = () => r();
-      utter.onerror = () => r();
-      window.speechSynthesis.speak(utter);
-    });
-  }
-
-  voiceBtn.classList.remove('voice-speaking');
+  try { recognition.start(); } catch (e) { console.warn('[STT] start 失败:', e); }
 }
 
-// ── 语音输入处理（可被 interrupt 复用）────────────────
+// ── 处理语音输入 ──────────────────────────────
 
 async function handleSpeechInput(text) {
-  console.log('[VOICE] handleSpeechInput 被调用:', text.slice(0, 20));
+  console.log('[VOICE] handleSpeechInput:', text.slice(0, 20));
   if (!text) return;
   appendBubble('user', text);
 
   const aiBubble = createStreamingBubble();
 
+  // TTS 句子队列
   const ttsQueue = [];
   currentTtsQueue = ttsQueue;
-  ttsAborted = false;
   let ttsProcessing = false;
 
   async function drainTtsQueue() {
     if (ttsProcessing) return;
-    console.log('[TTS] drainTtsQueue 开始, 队列长度:', ttsQueue.length);
+    console.log('[TTS] drainTtsQueue 开始, 队列:', ttsQueue.length);
+
+    // ── 进入播放态：关识别，设标志 ──
+    isSpeaking = true;
+    if (recognition) {
+      try { recognition.abort(); } catch {}
+      recognition = null;
+    }
+    console.log('[TTS] isSpeaking=true, recognition 已 abort');
+
     ttsProcessing = true;
-
-    // 暂停主识别 + 打断检测，避免 TTS 音频被当作用户输入
-    if (recognition) { try { recognition.stop(); } catch {} }
-    stopInterruptDetector();
-
     let prefetchedBlob = null;
 
-    while (ttsQueue.length > 0 && voiceActive && !ttsAborted) {
+    while (ttsQueue.length > 0 && voiceActive && isSpeaking) {
       const sentence = ttsQueue.shift();
-      console.log('[TTS] drainTtsQueue 取出一句:', sentence.slice(0, 20), '剩余:', ttsQueue.length);
+      console.log('[TTS] 播放:', sentence.slice(0, 20), '剩余:', ttsQueue.length);
 
       const nextFetch = ttsQueue.length > 0
         ? fetchTtsBlob(ttsQueue[0])
@@ -346,29 +310,29 @@ async function handleSpeechInput(text) {
         await playTtsBlob(prefetchedBlob);
       } else {
         const blob = await fetchTtsBlob(sentence);
-        if (blob && !ttsAborted) await playTtsBlob(blob);
+        if (blob) await playTtsBlob(blob);
       }
 
-      // 句子间固定 30ms
-      if (voiceActive && !ttsAborted && ttsQueue.length > 0) {
+      if (voiceActive && isSpeaking && ttsQueue.length > 0) {
         await new Promise(r => setTimeout(r, 30));
       }
 
       prefetchedBlob = await nextFetch;
     }
 
-    if (prefetchedBlob && !ttsAborted && voiceActive) {
+    // 播放最后的预加载块
+    if (prefetchedBlob && isSpeaking && voiceActive) {
       await playTtsBlob(prefetchedBlob);
     }
+
     currentTtsQueue = null;
     ttsProcessing = false;
 
-    // 所有句子播完，等 300ms 再重启识别（避免 TTS 尾音被捕获）
-    if (voiceActive && !ttsAborted) {
-      console.log('[TTS] drainTtsQueue 完成, 300ms 后重启识别');
-      await new Promise(r => setTimeout(r, 300));
-      startRecognition();
-    }
+    // ── 退出播放态：清标志，等 500ms 重启识别 ──
+    isSpeaking = false;
+    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 500ms 后重启识别');
+    await new Promise(r => setTimeout(r, 500));
+    if (voiceActive) startRecognition();
   }
 
   function enqueueTts(sentence) {
@@ -387,77 +351,43 @@ async function handleSpeechInput(text) {
       }
     );
 
-    if (ttsAborted) return; // 用户已打断，不覆盖气泡
-
     finalizeStreamingBubble(aiBubble, fullReply);
     if (window.notifyDaughter) notifyDaughter(text, fullReply);
     saveLog(text, fullReply);
 
-    while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive && !ttsAborted) {
+    // 等待 TTS 队列播放完毕
+    while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive) {
       await new Promise(r => setTimeout(r, 200));
     }
-    // drainTtsQueue 已自行处理 300ms 延时 + 重启识别
   } catch (e) {
     console.error('Stacy 请求失败:', e);
-    if (!ttsAborted) {
-      removeStreamingBubble(aiBubble);
-      appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
-    }
+    removeStreamingBubble(aiBubble);
+    appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
     saveLog(text, '');
+    // 出错也要恢复
+    isSpeaking = false;
     if (voiceActive) startRecognition();
   }
 }
 
-// ── 语音识别 ─────────────────────────────────
-
-function startRecognition() {
-  console.log('[STT] startRecognition 被调用');
-  if (!SpeechRecognition) {
-    console.log('[STT] SpeechRecognition 不支持');
-    appendBubble('ai', '当前浏览器不支持语音，请用 Chrome 打开 🌙');
-    return;
-  }
-  recognition = new SpeechRecognition();
-  recognition.lang = 'zh-CN';
-  recognition.interimResults = false;
-  recognition.continuous = false;
-
-  recognition.onresult = async (event) => {
-    console.log('[STT] 识别结果:', event.results[0][0].transcript);
-    const text = event.results[0][0].transcript.trim();
-    if (!text) return;
-
-    // 打断当前 TTS
-    abortAllTts();
-
-    handleSpeechInput(text);
-  };
-
-  recognition.onerror = (e) => {
-    console.warn('[STT] 错误:', e.error, e.message);
-    if (e.error === 'no-speech' && voiceActive) {
-      startRecognition();
-    } else if (e.error === 'aborted') {
-      // 用户手动停了
-    } else {
-      appendBubble('ai', '语音识别出了点问题，可以打字试试 🌙');
-      stopVoice();
-    }
-  };
-
-  recognition.start();
-}
+// ── 关闭语音 ─────────────────────────────────
 
 function stopVoice() {
   voiceActive = false;
+  isSpeaking = false;
   abortAllTts();
-  stopInterruptDetector();
-  if (recognition) { recognition.abort(); recognition = null; }
+  if (recognition) {
+    try { recognition.abort(); } catch {}
+    recognition = null;
+  }
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
 }
 
+// ── 麦克风按钮 ────────────────────────────────
+
 voiceBtn.addEventListener('click', async () => {
   if (voiceActive) {
+    // 手动点击 = 挂断
     stopVoice();
     appendBubble('ai', '语音已结束 🌙');
     return;
@@ -471,9 +401,8 @@ voiceBtn.addEventListener('click', async () => {
   }
 
   voiceActive = true;
+  isSpeaking = false;
   voiceBtn.classList.add('voice-active');
   appendBubble('ai', '语音已接通，请说话吧 🌙');
-  console.log('[VOICE] 点击麦克风，准备开始识别');
   startRecognition();
-  console.log('[VOICE] startRecognition 已调用');
 });
