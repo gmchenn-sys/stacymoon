@@ -168,10 +168,10 @@ body {
 .input-area {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
   max-width: 420px;
-  margin: 0 auto;
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
@@ -193,10 +193,13 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .user-input {
   flex: 1;
+  min-width: 0;
   height: 42px;
   border-radius: 21px;
   border: 1px solid var(--border);
