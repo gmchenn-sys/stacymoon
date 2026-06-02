@@ -123,6 +123,7 @@ let voiceActive = false;
 let isSpeaking = false;        // TTS 正在播放中，禁止 STT
 let currentAudio = null;
 let currentTtsQueue = null;
+let ttsAudioCtx = null;       // 持久 AudioContext，用户手势时创建，TTS 专用
 
 // ── 麦克风按钮图标切换 ────────────────────────
 
@@ -473,20 +474,38 @@ async function playTtsBlob(blob) {
   voiceBtn.classList.add('voice-speaking');
   voiceBtn.classList.add('voice-active');
   setMicIcon('stop');
+
+  // 通过持久 AudioContext 播放（iOS 允许用户手势创建的 AudioContext 后续异步播放）
+  if (ttsAudioCtx) {
+    try {
+      if (ttsAudioCtx.state === 'suspended') {
+        await ttsAudioCtx.resume();
+        console.log('[TTS] AudioContext 已恢复');
+      }
+      const arrayBuf = await blob.arrayBuffer();
+      const audioBuf = await ttsAudioCtx.decodeAudioData(arrayBuf);
+      const source = ttsAudioCtx.createBufferSource();
+      source.buffer = audioBuf;
+      source.connect(ttsAudioCtx.destination);
+      console.log('[TTS] 通过 AudioContext 播放, 时长:', audioBuf.duration.toFixed(1), 's');
+      source.start(0);
+      await new Promise(r => {
+        source.onended = () => { console.log('[TTS] AudioContext 播放完成'); r(); };
+      });
+      return;
+    } catch (e) {
+      console.warn('[TTS] AudioContext 播放失败, 回退到 Audio 元素:', e.message);
+    }
+  }
+
+  // 回退：new Audio()（桌面端/Android 可用）
   try {
     const objUrl = URL.createObjectURL(blob);
     currentAudio = new Audio(objUrl);
     currentAudio.volume = 1.0;
-    console.log('[TTS] 准备播放', objUrl);
-    try {
-      await currentAudio.play();
-      console.log('[TTS] 播放成功');
-    } catch (playErr) {
-      console.log('[TTS] 播放失败', playErr.name, playErr.message);
-      URL.revokeObjectURL(objUrl);
-      currentAudio = null;
-      throw playErr;
-    }
+    console.log('[TTS] 通过 Audio 元素播放');
+    await currentAudio.play();
+    console.log('[TTS] Audio 播放成功');
     await new Promise(r => {
       currentAudio.onended = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
       currentAudio.onerror = () => { URL.revokeObjectURL(objUrl); currentAudio = null; r(); };
@@ -595,6 +614,7 @@ function stopVoice() {
   isSpeaking = false;
   cleanupStt();
   abortAllTts();
+  if (ttsAudioCtx) { try { ttsAudioCtx.close(); } catch {} ttsAudioCtx = null; }
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
   setMicIcon('mic');
 }
@@ -611,16 +631,19 @@ function interruptSpeaking() {
 // ── 麦克风按钮 ────────────────────────────────
 
 voiceBtn.addEventListener('click', async () => {
-  // iOS: unlock AudioContext
-  if (!window._audioUnlocked) {
-    window._audioUnlocked = true;
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    ctx.resume();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
+  // iOS: 首次用户手势创建持久 AudioContext，后续所有 TTS 播放都通过它
+  if (!ttsAudioCtx) {
+    ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    await ttsAudioCtx.resume();
+    const buf = ttsAudioCtx.createBuffer(1, 1, 44100);
+    const src = ttsAudioCtx.createBufferSource();
     src.buffer = buf;
-    src.connect(ctx.destination);
+    src.connect(ttsAudioCtx.destination);
     src.start(0);
+    console.log('[AUDIO] AudioContext 已解锁, state:', ttsAudioCtx.state);
+  } else if (ttsAudioCtx.state === 'suspended') {
+    await ttsAudioCtx.resume();
+    console.log('[AUDIO] AudioContext 已恢复, state:', ttsAudioCtx.state);
   }
 
   // TTS 播放中点击 → 打断
