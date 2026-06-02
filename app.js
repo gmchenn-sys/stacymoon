@@ -273,14 +273,19 @@ async function startRecording() {
           }
         }
         if (msg.data?.status === 2) {
-          console.log('[IAT] 最终结果:', sttFinalText, '共发送', sttFrameSent, '帧');
+          console.log('[IAT] 最终识别文字:', sttFinalText);
+          console.log('[IAT] 共发送', sttFrameSent, '帧');
           cleanupStt();
 
-          if (sttFinalText.trim() && voiceActive) {
+          if (!sttFinalText || sttFinalText.trim() === '') {
+            console.log('[IAT] 最终文字为空，不发送给 AI');
+            if (voiceActive) appendBubble('ai', '没有听清，请再说一次 🌙');
+            return;
+          }
+          console.log('[IAT] 识别成功，发送给 AI:', sttFinalText.trim());
+          if (voiceActive) {
             abortAllTts();
             handleSpeechInput(sttFinalText.trim());
-          } else if (voiceActive) {
-            appendBubble('ai', '没有听清，请再说一次 🌙');
           }
         }
       } catch {}
