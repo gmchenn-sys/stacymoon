@@ -231,7 +231,6 @@ function abortAllTts() {
 
 function startInterruptDetector(onSpeech) {
   if (!SpeechRecognition) return;
-  abortAllTts(); // 上一轮如有残留先清理
 
   interruptRecognizer = new SpeechRecognition();
   interruptRecognizer.lang = 'zh-CN';
@@ -274,20 +273,28 @@ function stopInterruptDetector() {
 
 // 兼容旧接口（打字模式 + fallback）
 async function speakText(text) {
+  console.log('[TTS] speakText 被调用:', text.slice(0, 20));
   if (!voiceActive || ttsAborted) return;
   const clean = cleanTtsText(text);
+  console.log('[TTS] 清理后文本:', clean.slice(0, 30));
   voiceBtn.classList.add('voice-speaking');
 
   let played = false;
   try {
     const blob = await fetchTtsBlob(clean);
     if (blob && !ttsAborted) {
+      console.log('[TTS] 播放 blob, size:', blob.size);
       await playTtsBlob(blob);
       played = true;
+    } else {
+      console.log('[TTS] blob 为空或被中断');
     }
-  } catch {}
+  } catch (e) {
+    console.error('[TTS] 播放异常:', e);
+  }
 
   if (!played && voiceActive && !ttsAborted) {
+    console.log('[TTS] 回退到 speechSynthesis');
     await new Promise(r => {
       const utter = new SpeechSynthesisUtterance(clean);
       utter.lang = 'zh-CN';
@@ -305,6 +312,7 @@ async function speakText(text) {
 // ── 语音输入处理（可被 interrupt 复用）────────────────
 
 async function handleSpeechInput(text) {
+  console.log('[VOICE] handleSpeechInput 被调用:', text.slice(0, 20));
   if (!text) return;
   appendBubble('user', text);
 
@@ -317,6 +325,7 @@ async function handleSpeechInput(text) {
 
   async function drainTtsQueue() {
     if (ttsProcessing) return;
+    console.log('[TTS] drainTtsQueue 开始, 队列长度:', ttsQueue.length);
     ttsProcessing = true;
 
     // TTS 开始播放后，启动打断检测
@@ -326,6 +335,7 @@ async function handleSpeechInput(text) {
 
     while (ttsQueue.length > 0 && voiceActive && !ttsAborted) {
       const sentence = ttsQueue.shift();
+      console.log('[TTS] drainTtsQueue 取出一句:', sentence.slice(0, 20), '剩余:', ttsQueue.length);
 
       const nextFetch = ttsQueue.length > 0
         ? fetchTtsBlob(ttsQueue[0])
@@ -355,6 +365,7 @@ async function handleSpeechInput(text) {
   }
 
   function enqueueTts(sentence) {
+    console.log('[TTS] enqueueTts:', sentence.slice(0, 20));
     ttsQueue.push(sentence);
     drainTtsQueue();
   }
