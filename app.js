@@ -117,6 +117,7 @@ document.getElementById('user-input').addEventListener('keydown', e => {
 // ═══════════════════════════════════════════════════════════
 
 const voiceBtn = document.getElementById('voice-btn');
+const voiceIcon = document.getElementById('voice-icon');
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let recognition = null;
@@ -124,7 +125,23 @@ let voiceActive = false;
 let isSpeaking = false;        // 全局：TTS 正在播放中，禁止识别
 let currentAudio = null;
 let currentTtsQueue = null;    // 当前 TTS 队列引用，用于清空
-let interruptRecognizer = null; // 打断检测器
+
+// ── 麦克风按钮图标切换 ────────────────────────
+
+/*
+  麦克风按钮三种状态：
+  voice-active:          通话中，正在听（橙色脉冲）
+  voice-speaking:        AI 正在读，点此打断（红色，stop 图标）
+  无 class / voice-ended: 空闲/挂断
+*/
+
+const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
+const STOP_ICON = `<rect x="6" y="6" width="12" height="12" rx="2"/>`;
+
+function setMicIcon(type) {
+  if (!voiceIcon) return;
+  voiceIcon.innerHTML = type === 'stop' ? STOP_ICON : MIC_ICON;
+}
 
 // ── 数字 → 中文转换（TTS 前预处理）────────────────────
 
@@ -199,6 +216,8 @@ async function fetchTtsBlob(text) {
 async function playTtsBlob(blob) {
   if (!blob || !voiceActive) return;
   voiceBtn.classList.add('voice-speaking');
+  voiceBtn.classList.add('voice-active');          // 保持脉冲
+  setMicIcon('stop');                                // 切换为 stop 图标
   try {
     const objUrl = URL.createObjectURL(blob);
     currentAudio = new Audio(objUrl);
@@ -210,6 +229,8 @@ async function playTtsBlob(blob) {
     });
   } finally {
     voiceBtn.classList.remove('voice-speaking');
+    voiceBtn.classList.remove('voice-active');      // 去掉脉冲
+    setMicIcon('mic');                                // 恢复麦克风图标
   }
 }
 
@@ -219,44 +240,9 @@ function abortAllTts() {
   if (currentTtsQueue) { currentTtsQueue.length = 0; }
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   window.speechSynthesis.cancel();
-}
-
-// ── 打断检测器（TTS 播放时专门监听用户开口）─────────
-// 只用 onspeechstart，不做语音转文字，触发后切回主识别器
-
-function startInterruptDetector() {
-  if (!SpeechRecognition) return;
-  stopInterruptDetector();
-
-  interruptRecognizer = new SpeechRecognition();
-  interruptRecognizer.lang = 'zh-CN';
-  interruptRecognizer.continuous = false;
-  interruptRecognizer.interimResults = false;
-
-  interruptRecognizer.onspeechstart = () => {
-    console.log('[INTERRUPT] onspeechstart — 用户开口，打断 TTS');
-    stopInterruptDetector();
-    abortAllTts();
-    isSpeaking = false;
-    currentTtsQueue = null;
-    // 启动主识别器来捕获用户说的话
-    if (voiceActive) startRecognition();
-  };
-
-  interruptRecognizer.onerror = (e) => {
-    if (e.error === 'no-speech' && voiceActive && isSpeaking) {
-      try { interruptRecognizer.start(); } catch {}
-    }
-  };
-
-  try { interruptRecognizer.start(); } catch (e) { console.warn('[INTERRUPT] start 失败:', e); }
-}
-
-function stopInterruptDetector() {
-  if (interruptRecognizer) {
-    try { interruptRecognizer.abort(); } catch {}
-    interruptRecognizer = null;
-  }
+  isSpeaking = false;
+  voiceBtn.classList.remove('voice-speaking', 'voice-active');
+  setMicIcon('mic');
 }
 
 // ── 语音识别 ─────────────────────────────────
@@ -273,7 +259,6 @@ function startRecognition() {
     return;
   }
 
-  // 先确保旧的完全停止
   if (recognition) {
     try { recognition.abort(); } catch {}
     recognition = null;
@@ -326,14 +311,13 @@ async function handleSpeechInput(text) {
     if (ttsProcessing) return;
     console.log('[TTS] drainTtsQueue 开始, 队列:', ttsQueue.length);
 
-    // 进入播放态：关识别，设标志，启动打断检测
+    // 进入播放态：关识别，设标志
     isSpeaking = true;
     if (recognition) {
       try { recognition.abort(); } catch {}
       recognition = null;
     }
-    startInterruptDetector();
-    console.log('[TTS] isSpeaking=true, recognition 已 abort, 打断检测已启动');
+    console.log('[TTS] isSpeaking=true, recognition 已 abort');
 
     ttsProcessing = true;
 
@@ -341,7 +325,6 @@ async function handleSpeechInput(text) {
       const item = ttsQueue.shift();
       console.log('[TTS] 播放:', item.sentence.slice(0, 20), '剩余:', ttsQueue.length);
 
-      // 等待当前句的 blob（可能已提前下载好，也可能还在下载）
       const blob = await item.promise;
       if (blob && voiceActive && isSpeaking) {
         await playTtsBlob(blob);
@@ -356,8 +339,7 @@ async function handleSpeechInput(text) {
     currentTtsQueue = null;
     ttsProcessing = false;
 
-    // 退出播放态：清标志，关打断检测，等 50ms 重启识别
-    stopInterruptDetector();
+    // 退出播放态：清标志，等 50ms 重启识别
     isSpeaking = false;
     console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 50ms 后重启识别');
     await new Promise(r => setTimeout(r, 50));
@@ -386,7 +368,6 @@ async function handleSpeechInput(text) {
     if (window.notifyDaughter) notifyDaughter(text, fullReply);
     saveLog(text, fullReply);
 
-    // 等待 TTS 队列播放完毕
     while ((ttsQueue.length > 0 || ttsProcessing) && voiceActive) {
       await new Promise(r => setTimeout(r, 200));
     }
@@ -395,8 +376,6 @@ async function handleSpeechInput(text) {
     removeStreamingBubble(aiBubble);
     appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
     saveLog(text, '');
-    // 出错也要恢复
-    stopInterruptDetector();
     isSpeaking = false;
     if (voiceActive) startRecognition();
   }
@@ -407,25 +386,44 @@ async function handleSpeechInput(text) {
 function stopVoice() {
   voiceActive = false;
   isSpeaking = false;
-  stopInterruptDetector();
   abortAllTts();
   if (recognition) {
     try { recognition.abort(); } catch {}
     recognition = null;
   }
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
+  setMicIcon('mic');
+}
+
+// ── 打断当前 TTS（手动点击）───────────────
+
+function interruptSpeaking() {
+  console.log('[INTERRUPT] 手动打断 TTS');
+  abortAllTts();
+  currentTtsQueue = null;
+  if (recognition) { try { recognition.abort(); } catch {} }
+  isSpeaking = false;
+  if (voiceActive) startRecognition();
 }
 
 // ── 麦克风按钮 ────────────────────────────────
 
 voiceBtn.addEventListener('click', async () => {
+  // TTS 播放中点击 → 打断
+  if (isSpeaking) {
+    interruptSpeaking();
+    appendBubble('ai', '好的，你说 🌙');
+    return;
+  }
+
+  // 通话中但不是 TTS 播放 → 挂断
   if (voiceActive) {
-    // 手动点击 = 挂断
     stopVoice();
     appendBubble('ai', '语音已结束 🌙');
     return;
   }
 
+  // 空闲 → 开启通话
   try {
     await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch {
@@ -436,6 +434,7 @@ voiceBtn.addEventListener('click', async () => {
   voiceActive = true;
   isSpeaking = false;
   voiceBtn.classList.add('voice-active');
+  setMicIcon('mic');
   appendBubble('ai', '语音已接通，请说话吧 🌙');
   startRecognition();
 });
