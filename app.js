@@ -217,23 +217,29 @@ function startRecognition() {
       ttsProcessing = true;
 
       let prefetchedBlob = null;
+
       while (ttsQueue.length > 0 && voiceActive) {
         const sentence = ttsQueue.shift();
 
-        // 提前请求下一句的 TTS 音频（当前句播放时并行下载）
-        const nextPrefetch = ttsQueue.length > 0
+        // 当前句开始播放时，立即并行预请求下一句音频（跨越网络延迟）
+        const nextFetch = ttsQueue.length > 0
           ? fetchTtsBlob(ttsQueue[0])
           : Promise.resolve(null);
 
-        // 播放当前句（用预加载好的 blob，跳过网络请求）
+        // 播放当前句
         if (prefetchedBlob) {
           await playTtsBlob(prefetchedBlob);
         } else {
-          await speakText(sentence);
+          const blob = await fetchTtsBlob(sentence);
+          if (blob) await playTtsBlob(blob);
         }
 
-        // 下一句已下载完毕，循环中立刻播放
-        prefetchedBlob = await nextPrefetch;
+        // 句子间固定 50ms 停顿
+        if (voiceActive && ttsQueue.length > 0) {
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        prefetchedBlob = await nextFetch;
       }
       ttsProcessing = false;
     }
