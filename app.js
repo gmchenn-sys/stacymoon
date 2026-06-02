@@ -349,7 +349,7 @@ async function startRecognition() {
     sttSilenceTimer = setInterval(() => {
       if (!sttActive) return;
       const elapsed = Date.now() - sttLastResultTime;
-      if (elapsed > 1500) {
+      if (elapsed > 3000) {
         console.log('[STT] 静音 ' + Math.round(elapsed / 1000) + 's，发送结束帧');
         sendSttEnd();
         clearInterval(sttSilenceTimer);
@@ -590,6 +590,18 @@ function interruptSpeaking() {
 // ── 麦克风按钮 ────────────────────────────────
 
 voiceBtn.addEventListener('click', async () => {
+  // iOS: first user gesture → unlock AudioContext for audio playback
+  if (!window._audioUnlocked) {
+    window._audioUnlocked = true;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  }
+
   // TTS 播放中点击 → 打断
   if (isSpeaking) {
     interruptSpeaking();
