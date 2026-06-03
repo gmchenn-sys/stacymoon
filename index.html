@@ -90,7 +90,18 @@
   <main class="chat-box" id="chat-box">
     <div class="bubble-row ai">
       <span class="avatar">🌙</span>
-      <div class="bubble ai-bubble">妈妈，我在。有什么不舒服，或者心里有什么想说的，都可以告诉我。🌙</div>
+      <div class="bubble ai-bubble" id="welcome-bubble">妈妈，我在。有什么不舒服，或者心里有什么想说的，都可以告诉我。🌙</div>
+      <script>
+        (function() {
+          try {
+            const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+            if (profile && profile.name) {
+              document.getElementById('welcome-bubble').textContent =
+                profile.name + '，我在。有什么不舒服，或者心里有什么想说的，都可以告诉我。🌙';
+            }
+          } catch {}
+        })();
+      </script>
     </div>
   </main>
 
