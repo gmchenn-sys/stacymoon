@@ -155,6 +155,7 @@ let sttProcessor = null;     // ScriptProcessorNode
 let sttWs = null;            // WebSocket
 let sttAllWords = [];         // 收集所有 status 0/1 的 ws 文字
 let sttFrameSent = 0;        // 已发送音频帧数
+let sttAutoStartTimer = null; // 自动重录定时器
 
 // 鉴权
 async function buildSttWsUrl() {
@@ -185,6 +186,8 @@ function arrayBufferToBase64(buffer) {
 async function startRecording() {
   if (sttActive) return;
   console.log('[IAT] startRecording 开始');
+  // 取消旧的自动录音定时器
+  if (sttAutoStartTimer) { clearTimeout(sttAutoStartTimer); sttAutoStartTimer = null; }
 
   try {
     // 1) 先鉴权建 WebSocket
@@ -285,7 +288,11 @@ async function startRecording() {
             console.log('[IAT] 去标点后为空，不发送给 AI');
             if (voiceActive) {
               appendBubble('ai', '没有听清，请再说一次 🌙');
-              setTimeout(() => startRecording(), 300);
+              if (sttAutoStartTimer) clearTimeout(sttAutoStartTimer);
+              sttAutoStartTimer = setTimeout(() => {
+                sttAutoStartTimer = null;
+                startRecording();
+              }, 2000);
             }
             return;
           }
@@ -575,10 +582,15 @@ async function handleSpeechInput(text) {
     ttsProcessing = false;
 
     isSpeaking = false;
-    console.log('[TTS] drainTtsQueue 完成, 自动进入录音');
-    // TTS 播完 → 自动开始下一轮录音
+    console.log('[TTS] drainTtsQueue 完成, 2s 后自动录音（此期间点击可关闭）');
+    // 清除旧定时器，设新定时器
+    if (sttAutoStartTimer) clearTimeout(sttAutoStartTimer);
     if (voiceActive) {
-      setTimeout(() => startRecording(), 300);
+      sttAutoStartTimer = setTimeout(() => {
+        sttAutoStartTimer = null;
+        console.log('[VOICE] 自动开始录音');
+        startRecording();
+      }, 2000);
     }
   }
 
@@ -678,6 +690,7 @@ voiceBtn.addEventListener('click', async () => {
   // 等待状态（没录音、没 TTS）→ 关闭语音模式
   voiceActive = false;
   isSpeaking = false;
+  if (sttAutoStartTimer) { clearTimeout(sttAutoStartTimer); sttAutoStartTimer = null; }
   cleanupStt();
   abortAllTts();
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
