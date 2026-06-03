@@ -122,6 +122,7 @@ const voiceIcon = document.getElementById('voice-icon');
 let voiceActive = false;
 let isSpeaking = false;        // TTS 正在播放中，禁止 STT
 let currentAudio = null;
+let currentAudioSource = null;  // AudioContext BufferSource 引用，打断时 stop
 let currentTtsQueue = null;
 let ttsAudioCtx = null;       // 持久 AudioContext，用户手势时创建，TTS 专用
 
@@ -487,10 +488,15 @@ async function playTtsBlob(blob) {
       const source = ttsAudioCtx.createBufferSource();
       source.buffer = audioBuf;
       source.connect(ttsAudioCtx.destination);
+      currentAudioSource = source;
       console.log('[TTS] 通过 AudioContext 播放, 时长:', audioBuf.duration.toFixed(1), 's');
       source.start(0);
       await new Promise(r => {
-        source.onended = () => { console.log('[TTS] AudioContext 播放完成'); r(); };
+        source.onended = () => {
+          console.log('[TTS] AudioContext 播放完成');
+          if (currentAudioSource === source) currentAudioSource = null;
+          r();
+        };
       });
       return;
     } catch (e) {
@@ -521,6 +527,10 @@ async function playTtsBlob(blob) {
 
 function abortAllTts() {
   if (currentTtsQueue) { currentTtsQueue.length = 0; }
+  if (currentAudioSource) {
+    try { currentAudioSource.stop(); } catch {}
+    currentAudioSource = null;
+  }
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   window.speechSynthesis.cancel();
   isSpeaking = false;
@@ -626,6 +636,12 @@ function interruptSpeaking() {
   abortAllTts();
   currentTtsQueue = null;
   isSpeaking = false;
+  setTimeout(() => {
+    if (voiceActive) {
+      appendBubble('ai', '请说话 🌙');
+      startRecording();
+    }
+  }, 200);
 }
 
 // ── 麦克风按钮 ────────────────────────────────
