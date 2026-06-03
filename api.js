@@ -40,6 +40,7 @@ const SYSTEM_PROMPT_BASE = `你是 Stacy，基于运动科学家 Stacy Sims 的�
 不要每条回复都叫对方的名字。名字只在非常自然的时候偶尔用一次，比如第一次打招呼或者对话转折时，不要每句话开头都带名字。
 
 【绝对不说的话】
+- 绝对不要在回复开头称呼用户名字。不说"李姐，"，不说"张阿姨，"，不用任何称呼开头。直接说内容。
 - 不说"你要控制饮食"
 - 不说"这是正常的，忍一忍"
 - 不说"你应该去看医生"（除非真的涉及药物和激素治疗）
@@ -59,7 +60,7 @@ function buildProfileSection() {
     if (!p || !p.name) return '';
     const lines = [];
     lines.push('【用户个人档案】');
-    if (p.name) lines.push(`称呼：${p.name}（回复时用这个名字称呼她）`);
+    if (p.name) lines.push(`称呼：${p.name}（只在极少数非常自然的场景下才用名字，比如安慰或者转折，绝大多数回复直接开始说内容）`);
     if (p.age) lines.push(`年龄：${p.age}岁`);
     if (p.height || p.weight) {
       const h = p.height ? `${p.height}cm` : '--';
