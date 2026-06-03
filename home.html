@@ -2,164 +2,158 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stacy Moon">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='80'>🌙</text></svg>">
   <title>Stacy Moon</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
     :root{
       --bg:#0a0a0f;--accent:#F97316;--accent-glow:rgba(249,115,22,0.25);--text:#e4e4e7;
-      --text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:18px;
+      --text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:16px;
     }
     body{
       font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
-      max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
-      -webkit-font-smoothing:antialiased;padding-bottom:40px;
+      max-width:420px;margin:0 auto;min-height:100dvh;
+      -webkit-font-smoothing:antialiased;
+      padding:0 16px 24px;
+      padding-top:max(12px,env(safe-area-inset-top));
+      padding-bottom:max(24px,env(safe-area-inset-bottom));
     }
 
-    /* ── 顶部栏 ─────────────── */
+    /* ── 顶部栏 ─────────── */
     .topbar{
       display:flex;align-items:center;justify-content:space-between;
-      padding:20px 24px;flex-shrink:0;
+      padding:8px 4px 12px;
     }
-    .greeting{font-size:1.1rem;color:#fff;font-weight:500}
+    .greeting{font-size:1.05rem;color:#fff;font-weight:500}
     .greeting .name{color:var(--accent);font-weight:700}
-    .profile-btn{
-      width:40px;height:40px;border-radius:12px;border:1px solid var(--border);
+    .topbar-actions{display:flex;gap:8px}
+    .icon-btn{
+      width:36px;height:36px;border-radius:10px;border:1px solid var(--border);
       background:var(--surface);color:var(--text-muted);display:flex;align-items:center;
-      justify-content:center;cursor:pointer;font-size:18px;transition:border-color 0.2s,color 0.2s;
+      justify-content:center;cursor:pointer;font-size:16px;transition:border-color 0.2s;
+      text-decoration:none;
     }
-    .profile-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .icon-btn:active{border-color:var(--accent)}
 
-    /* ── 打卡卡片 ───────────── */
+    /* ── 打卡卡片(未打卡) ── */
     .checkin-card{
-      margin:0 20px 24px;background:linear-gradient(135deg,rgba(249,115,22,0.12),rgba(139,92,246,0.08));
-      border:1px solid rgba(249,115,22,0.15);border-radius:var(--radius);padding:24px 20px;
+      background:linear-gradient(135deg,rgba(249,115,22,0.1),rgba(139,92,246,0.06));
+      border:1px solid rgba(249,115,22,0.12);border-radius:var(--radius);padding:16px;margin-bottom:12px;
     }
-    .checkin-title{font-size:0.78rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-    .checkin-title .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-    .checkin-done{text-align:center;padding:12px 0}
-    .checkin-done .icon{font-size:32px;margin-bottom:8px}
-    .checkin-done .summary{font-size:0.9rem;color:var(--text);line-height:1.6}
-    .checkin-done .time{font-size:0.72rem;color:var(--text-muted);margin-top:4px}
+    .checkin-card.done{background:linear-gradient(135deg,rgba(249,115,22,0.04),rgba(139,92,246,0.02));border-color:rgba(249,115,22,0.06)}
+    .checkin-title{font-size:0.7rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+    .checkin-title .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+    .checkin-done{text-align:center;padding:4px 0}
+    .checkin-done .summary{font-size:0.82rem;color:var(--text);line-height:1.5}
+    .checkin-done .time{font-size:0.68rem;color:var(--text-muted);margin-top:2px}
 
-    /* ── 行 ─────────────── */
-    .field-row{display:flex;align-items:center;margin-bottom:14px;gap:10px}
-    .field-label{font-size:0.8rem;color:var(--text-muted);width:56px;flex-shrink:0}
-
-    /* ── 心情 emoji ─────── */
-    .mood-picker{display:flex;gap:8px;flex:1;flex-wrap:wrap}
+    .field-row{display:flex;align-items:center;margin-bottom:10px;gap:8px}
+    .field-label{font-size:0.72rem;color:var(--text-muted);width:44px;flex-shrink:0}
+    .mood-picker{display:flex;gap:6px;flex:1}
     .mood-btn{
-      width:42px;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
-      font-size:22px;cursor:pointer;transition:border-color 0.2s,background 0.2s,transform 0.15s;
-      display:flex;align-items:center;justify-content:center;
-    }
-    .mood-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);transform:scale(1.1)}
-    .mood-btn:active{transform:scale(0.95)}
-
-    /* ── 睡眠评分 ─────── */
-    .sleep-picker{display:flex;gap:8px;flex:1}
-    .sleep-btn{
       width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
-      color:var(--text-muted);font-size:0.85rem;font-weight:600;cursor:pointer;
-      transition:border-color 0.2s,background 0.2s,color 0.2s,transform 0.15s;
-      display:flex;align-items:center;justify-content:center;
+      font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:border-color 0.15s,background 0.15s,transform 0.12s;
     }
-    .sleep-btn.selected{border-color:var(--accent);background:var(--accent);color:#fff;transform:scale(1.08)}
-    .sleep-btn:active{transform:scale(0.95)}
-
-    /* ── 症状标签 ─────── */
-    .tag-picker{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+    .mood-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);transform:scale(1.08)}
+    .mood-btn:active{transform:scale(0.93)}
+    .sleep-picker{display:flex;gap:5px;flex:1}
+    .sleep-btn{
+      width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text-muted);font-size:0.78rem;font-weight:600;cursor:pointer;
+      transition:border-color 0.15s,background 0.15s,color 0.15s;display:flex;align-items:center;justify-content:center;
+    }
+    .sleep-btn.selected{border-color:var(--accent);background:var(--accent);color:#fff}
+    .sleep-btn:active{transform:scale(0.93)}
+    .tag-picker{display:flex;flex-wrap:wrap;gap:5px;flex:1}
     .tag-btn{
-      padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);
-      color:var(--text-muted);font-size:0.8rem;cursor:pointer;white-space:nowrap;
-      transition:border-color 0.2s,background 0.2s,color 0.2s;
+      padding:5px 10px;border-radius:16px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text-muted);font-size:0.72rem;cursor:pointer;white-space:nowrap;
+      transition:border-color 0.15s,background 0.15s,color 0.15s;
     }
-    .tag-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);color:var(--accent)}
-    .tag-btn:active{background:rgba(249,115,22,0.25)}
-
-    /* ── 备注 ──────────── */
+    .tag-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.12);color:var(--accent)}
+    .tag-btn:active{background:rgba(249,115,22,0.2)}
     .note-input{
-      flex:1;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
-      color:var(--text);font-family:inherit;font-size:0.85rem;padding:0 12px;outline:none;
+      flex:1;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text);font-family:inherit;font-size:0.78rem;padding:0 10px;outline:none;
     }
     .note-input:focus{border-color:var(--accent)}
     .note-input::placeholder{color:#444}
-
-    /* ── 提交按钮 ──────── */
     .submit-btn{
-      width:100%;height:44px;border-radius:12px;border:none;margin-top:16px;
-      background:var(--accent);color:#fff;font-family:inherit;font-size:0.9rem;font-weight:500;
-      cursor:pointer;transition:opacity 0.2s,transform 0.15s;
+      width:100%;height:40px;border-radius:10px;border:none;margin-top:10px;
+      background:var(--accent);color:#fff;font-family:inherit;font-size:0.82rem;font-weight:500;
+      cursor:pointer;transition:opacity 0.15s,transform 0.12s;
     }
     .submit-btn:active{opacity:0.85;transform:scale(0.97)}
-    .submit-btn:disabled{opacity:0.4;cursor:default}
+    .submit-btn:disabled{opacity:0.35;cursor:default}
 
-    /* ── 今日任务卡片 ─────── */
+    /* ── 任务卡片 ─────── */
     .task-card{
-      margin:0 20px 24px;background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(16,185,129,0.05));
-      border:1px solid rgba(34,197,94,0.12);border-radius:var(--radius);padding:20px;
+      background:linear-gradient(135deg,rgba(34,197,94,0.07),rgba(16,185,129,0.04));
+      border:1px solid rgba(34,197,94,0.1);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;
     }
-    .task-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-    .task-header .icon{font-size:20px}
-    .task-header .label{font-size:0.72rem;color:#22c55e;letter-spacing:1px;font-weight:500}
-    .task-body{font-size:0.95rem;color:#fff;line-height:1.6}
-    .task-body .highlight{color:#22c55e;font-weight:600}
-    .task-hint{font-size:0.72rem;color:var(--text-muted);margin-top:8px;line-height:1.5}
+    .task-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+    .task-header{display:flex;align-items:center;gap:6px}
+    .task-header .icon{font-size:16px}
+    .task-header .label{font-size:0.66rem;color:#22c55e;letter-spacing:1px;font-weight:500}
+    .task-body{font-size:0.88rem;color:#fff;line-height:1.5}
+    .task-hint{font-size:0.68rem;color:var(--text-muted);margin-top:4px;line-height:1.4}
     .task-done-btn{
-      display:inline-flex;align-items:center;gap:4px;margin-top:12px;padding:6px 16px;
-      border-radius:20px;border:1px solid rgba(34,197,94,0.3);background:transparent;
-      color:#22c55e;font-family:inherit;font-size:0.8rem;cursor:pointer;
-      transition:background 0.2s;
+      font-size:0.7rem;color:#22c55e;background:none;border:none;cursor:pointer;padding:0;
     }
-    .task-done-btn:active{background:rgba(34,197,94,0.1)}
-    .task-done-btn.done{border-color:rgba(34,197,94,0.5);background:rgba(34,197,94,0.12)}
-    .task-done-btn.done::before{content:'✅ '}
+    .task-done-btn.done{color:rgba(34,197,94,0.5);cursor:default}
 
-    /* ── 周报入口卡片 ─────── */
+    /* ── 周报入口 ─────── */
     .weekly-banner{
-      margin:0 20px 24px;background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(99,102,241,0.05));
-      border:1px solid rgba(139,92,246,0.12);border-radius:var(--radius);padding:16px 20px;
+      background:linear-gradient(135deg,rgba(139,92,246,0.07),rgba(99,102,241,0.04));
+      border:1px solid rgba(139,92,246,0.1);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;
       display:flex;align-items:center;justify-content:space-between;cursor:pointer;
-      transition:border-color 0.2s;
+      text-decoration:none;color:inherit;transition:border-color 0.2s;
     }
-    .weekly-banner:hover{border-color:rgba(139,92,246,0.3)}
     .weekly-banner:active{background:rgba(139,92,246,0.06)}
-    .weekly-left{display:flex;align-items:center;gap:10px}
-    .weekly-icon{font-size:24px}
-    .weekly-info{line-height:1.4}
-    .weekly-label{font-size:0.75rem;color:#a78bfa;letter-spacing:1px;font-weight:500}
-    .weekly-preview{font-size:0.82rem;color:var(--text-muted)}
-    .weekly-arrow{font-size:18px;color:var(--text-muted)}
+    .weekly-left{display:flex;align-items:center;gap:8px}
+    .weekly-icon{font-size:20px}
+    .weekly-info{line-height:1.3}
+    .weekly-label{font-size:0.7rem;color:#a78bfa;letter-spacing:1px;font-weight:500}
+    .weekly-preview{font-size:0.75rem;color:var(--text-muted)}
+    .weekly-arrow{font-size:16px;color:var(--text-muted)}
 
-    /* ── CTA 按钮 ───────────── */
-    .cta-wrap{padding:0 20px;margin-bottom:24px}
+    /* ── CTA ──────────── */
+    .cta-wrap{margin-bottom:14px}
     .cta-btn{
-      width:100%;height:68px;border-radius:20px;border:none;
+      width:100%;height:54px;border-radius:16px;border:none;
       background:linear-gradient(135deg,var(--accent),#ea580c);
-      color:#fff;font-family:inherit;font-size:1.15rem;font-weight:600;
-      cursor:pointer;transition:opacity 0.2s,transform 0.15s;
-      box-shadow:0 8px 32px rgba(249,115,22,0.2);
+      color:#fff;font-family:inherit;font-size:1rem;font-weight:600;
+      cursor:pointer;transition:opacity 0.15s,transform 0.12s;
+      box-shadow:0 4px 20px rgba(249,115,22,0.18);
     }
     .cta-btn:active{opacity:0.85;transform:scale(0.97)}
 
-    /* ── 最近记录 ───────────── */
-    .recent-section{padding:0 20px 40px}
-    .recent-title{font-size:0.75rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:12px}
+    /* ── 对话片段 ─────── */
+    .recent-section{margin-top:4px}
+    .recent-title{font-size:0.66rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:8px}
     .log-item{
-      padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
-      margin-bottom:10px;
+      padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+      margin-bottom:6px;display:flex;align-items:center;gap:10px;
     }
-    .log-time{font-size:0.7rem;color:var(--text-muted);margin-bottom:6px}
-    .log-preview{font-size:0.85rem;color:var(--text);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .log-empty{text-align:center;padding:40px 20px;color:var(--text-muted);font-size:0.85rem;line-height:1.8}
+    .log-time{font-size:0.65rem;color:var(--text-muted);flex-shrink:0;width:32px}
+    .log-preview{font-size:0.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+    .log-empty{text-align:center;padding:20px 0;color:var(--text-muted);font-size:0.75rem;line-height:1.6}
   </style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="greeting" id="greeting">你好</div>
-  <button class="profile-btn" id="profile-btn" title="我的档案">📋</button>
+  <div class="topbar-actions">
+    <a class="icon-btn" href="weekly.html" title="本周回顾" id="weekly-icon-btn" style="display:none">📊</a>
+    <button class="icon-btn" id="profile-btn" title="档案">📋</button>
+  </div>
 </div>
 
 <div class="checkin-card" id="checkin-card">
@@ -168,456 +162,173 @@
 </div>
 
 <div class="task-card" id="task-card" style="display:none">
-  <div class="task-header">
-    <span class="icon">🎯</span>
-    <span class="label">今日小任务</span>
+  <div class="task-top">
+    <div class="task-header"><span class="icon">🎯</span><span class="label">今日小任务</span></div>
+    <button class="task-done-btn" id="task-done-btn">完成</button>
   </div>
   <div class="task-body" id="task-body"></div>
   <div class="task-hint" id="task-hint"></div>
-  <button class="task-done-btn" id="task-done-btn">点我标记完成</button>
 </div>
 
 <div class="cta-wrap">
   <button class="cta-btn" id="cta-btn">🌙 和 Stacy 说说话</button>
 </div>
 
-<a class="weekly-banner" id="weekly-banner" href="weekly.html" style="text-decoration:none;color:inherit;display:none">
-  <div class="weekly-left">
-    <span class="weekly-icon">📊</span>
-    <div class="weekly-info">
-      <div class="weekly-label">本周回顾</div>
-      <div class="weekly-preview" id="weekly-preview"></div>
-    </div>
-  </div>
-  <span class="weekly-arrow">→</span>
-</a>
-
 <div class="recent-section">
   <div class="recent-title">最近对话</div>
   <div id="log-list">
-    <div class="log-empty">还没有对话记录<br>点上方按钮跟 Stacy 聊两句吧</div>
+    <div class="log-empty">还没有对话记录<br>跟 Stacy 聊两句吧</div>
   </div>
 </div>
 
 <script src="supabase.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
-// ── 打卡配置 ────────────────────────────────
+// 打卡配置
 // ═══════════════════════════════════════════════════════════
-
 const MOODS = [
-  { emoji:'😊', label:'不错' },
-  { emoji:'😐', label:'一般' },
-  { emoji:'😤', label:'烦躁' },
-  { emoji:'😢', label:'低落' },
-  { emoji:'😴', label:'很累' },
+  { emoji:'😊', label:'不错' },{ emoji:'😐', label:'一般' },{ emoji:'😤', label:'烦躁' },
+  { emoji:'😢', label:'低落' },{ emoji:'😴', label:'很累' },
 ];
-
 const SYMPTOM_TAGS = [
-  { key:'hot_flash', label:'潮热' },
-  { key:'night_sweat', label:'出汗' },
-  { key:'poor_sleep', label:'睡不好' },
-  { key:'mood_swing', label:'情绪波动' },
-  { key:'joint_pain', label:'关节疼' },
-  { key:'brain_fog', label:'脑雾' },
+  { key:'hot_flash', label:'潮热' },{ key:'night_sweat', label:'出汗' },{ key:'poor_sleep', label:'睡不好' },
+  { key:'mood_swing', label:'情绪波动' },{ key:'joint_pain', label:'关节疼' },{ key:'brain_fog', label:'脑雾' },
 ];
-
 const SYMPTOM_LABEL_MAP = {};
 SYMPTOM_TAGS.forEach(s => SYMPTOM_LABEL_MAP[s.key] = s.label);
-
 const STORAGE_KEY = 'stacy_daily_logs';
 
 // ═══════════════════════════════════════════════════════════
-// ── 数据读写 ────────────────────────────────
+// 数据读写
 // ═══════════════════════════════════════════════════════════
-
-function getToday() {
-  return new Date().toISOString().slice(0,10);
-}
-
-function loadAllLogs() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-  catch { return []; }
-}
-
-function saveAllLogs(logs) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
-}
-
-function getTodayLog() {
-  const today = getToday();
-  return loadAllLogs().find(l => l.date === today) || null;
-}
-
+function getToday() { return new Date().toISOString().slice(0,10); }
+function loadAllLogs() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { return []; } }
+function saveAllLogs(logs) { localStorage.setItem(STORAGE_KEY, JSON.stringify(logs)); }
+function getTodayLog() { return loadAllLogs().find(l => l.date === getToday()) || null; }
 function saveTodayLog(data) {
-  const logs = loadAllLogs();
-  const today = getToday();
-  const idx = logs.findIndex(l => l.date === today);
-  data.date = today;
-  if (idx >= 0) logs[idx] = data;
-  else logs.push(data);
-  saveAllLogs(logs);
-
-  // 同步到 Supabase，女儿端可读
-  syncToSupabase(data);
+  const logs = loadAllLogs(); const today = getToday();
+  const idx = logs.findIndex(l => l.date === today); data.date = today;
+  if (idx >= 0) logs[idx] = data; else logs.push(data);
+  saveAllLogs(logs); syncToSupabase(data);
 }
-
 async function syncToSupabase(data) {
   try {
-    const code = localStorage.getItem('stacy_invite_code');
-    if (!code) return;
+    const code = localStorage.getItem('stacy_invite_code'); if (!code) return;
     await fetch(`${window.SUPABASE_URL}/rest/v1/daily_logs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': window.SUPABASE_KEY,
-        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        invite_code: code,
-        date: data.date,
-        mood: data.mood || '',
-        sleep_score: data.sleep_score || 0,
-        symptoms: data.symptoms || [],
-        note: data.note || ''
-      })
+      method:'POST', headers:{'Content-Type':'application/json','apikey':window.SUPABASE_KEY,'Authorization':'Bearer '+window.SUPABASE_KEY,'Prefer':'return=minimal'},
+      body:JSON.stringify({invite_code:code,date:data.date,mood:data.mood||'',sleep_score:data.sleep_score||0,symptoms:data.symptoms||[],note:data.note||''})
     });
-  } catch (e) { console.warn('Supabase 同步失败:', e); }
+  } catch(e) { console.warn('Supabase sync fail:', e); }
 }
 
 // ═══════════════════════════════════════════════════════════
-// ── 渲染 ──────────────────────────────────
+// 打卡渲染
 // ═══════════════════════════════════════════════════════════
-
 function renderCheckin() {
   const container = document.getElementById('checkin-content');
   const todayLog = getTodayLog();
-
   if (todayLog) {
-    renderCheckinDone(container, todayLog);
+    const card = document.getElementById('checkin-card'); card.classList.add('done');
+    const moodLabel = MOODS.find(m => m.emoji === todayLog.mood);
+    const symptomsStr = (todayLog.symptoms||[]).map(s => SYMPTOM_LABEL_MAP[s]||s).join('、') || '无';
+    const parts = [];
+    if (moodLabel) parts.push(moodLabel.label);
+    if (todayLog.sleep_score) parts.push('睡'+todayLog.sleep_score+'分');
+    if (symptomsStr !== '无') parts.push(symptomsStr);
+    if (todayLog.note) parts.push('"'+todayLog.note+'"');
+    container.innerHTML = `<div class="checkin-done"><div class="summary">${parts.join(' · ')}</div><div class="time">今天已打卡</div></div>`;
   } else {
-    renderCheckinForm(container);
+    document.getElementById('checkin-card').classList.remove('done');
+    container.innerHTML = `
+      <div class="field-row"><span class="field-label">心情</span><div class="mood-picker" id="mood-picker">${MOODS.map(m => `<button class="mood-btn" data-value="${m.emoji}" title="${m.label}">${m.emoji}</button>`).join('')}</div></div>
+      <div class="field-row"><span class="field-label">睡眠</span><div class="sleep-picker" id="sleep-picker">${[1,2,3,4,5].map(n => `<button class="sleep-btn" data-value="${n}">${n}</button>`).join('')}</div></div>
+      <div class="field-row"><span class="field-label">症状</span><div class="tag-picker" id="tag-picker">${SYMPTOM_TAGS.map(t => `<button class="tag-btn" data-value="${t.key}">${t.label}</button>`).join('')}</div></div>
+      <div class="field-row"><span class="field-label">备注</span><input class="note-input" id="note-input" placeholder="还想说什么…" maxlength="40"></div>
+      <button class="submit-btn" id="submit-btn">记录今天的感受</button>`;
+    bindFormEvents();
   }
-}
-
-function renderCheckinDone(container, log) {
-  const moodLabel = MOODS.find(m => m.emoji === log.mood);
-  const symptomsStr = (log.symptoms || []).map(s => SYMPTOM_LABEL_MAP[s] || s).join('、') || '无';
-  const sleepStr = log.sleep_score ? log.sleep_score + '分' : '';
-  const parts = [];
-  if (moodLabel) parts.push('心情' + moodLabel.label);
-  if (sleepStr) parts.push('睡眠' + sleepStr);
-  if (symptomsStr !== '无') parts.push(symptomsStr);
-  if (log.note) parts.push('"' + log.note + '"');
-
-  container.innerHTML = `
-    <div class="checkin-done">
-      <div class="icon">✅</div>
-      <div class="summary">${parts.join(' · ')}</div>
-      <div class="time">今天已打卡 · 跟 Stacy 聊聊今天的感受吧</div>
-    </div>`;
-}
-
-function renderCheckinForm(container) {
-  container.innerHTML = `
-    <div class="field-row">
-      <span class="field-label">心情</span>
-      <div class="mood-picker" id="mood-picker">
-        ${MOODS.map(m => `<button class="mood-btn" data-value="${m.emoji}" title="${m.label}">${m.emoji}</button>`).join('')}
-      </div>
-    </div>
-    <div class="field-row">
-      <span class="field-label">睡眠</span>
-      <div class="sleep-picker" id="sleep-picker">
-        ${[1,2,3,4,5].map(n => `<button class="sleep-btn" data-value="${n}">${n}</button>`).join('')}
-      </div>
-    </div>
-    <div class="field-row">
-      <span class="field-label">症状</span>
-      <div class="tag-picker" id="tag-picker">
-        ${SYMPTOM_TAGS.map(t => `<button class="tag-btn" data-value="${t.key}">${t.label}</button>`).join('')}
-      </div>
-    </div>
-    <div class="field-row">
-      <span class="field-label">备注</span>
-      <input class="note-input" id="note-input" placeholder="还想说什么…" maxlength="60">
-    </div>
-    <button class="submit-btn" id="submit-btn">记录今天的感受</button>
-  `;
-
-  bindFormEvents();
 }
 
 function bindFormEvents() {
-  let selectedMood = null;
-  let selectedSleep = null;
-  const selectedTags = new Set();
-
-  const moodPicker = document.getElementById('mood-picker');
-  const sleepPicker = document.getElementById('sleep-picker');
-  const tagPicker = document.getElementById('tag-picker');
-  const submitBtn = document.getElementById('submit-btn');
-
-  moodPicker.addEventListener('click', e => {
-    const btn = e.target.closest('.mood-btn');
-    if (!btn) return;
-    moodPicker.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    selectedMood = btn.dataset.value;
-    updateSubmit();
-  });
-
-  sleepPicker.addEventListener('click', e => {
-    const btn = e.target.closest('.sleep-btn');
-    if (!btn) return;
-    sleepPicker.querySelectorAll('.sleep-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    selectedSleep = parseInt(btn.dataset.value);
-    updateSubmit();
-  });
-
-  tagPicker.addEventListener('click', e => {
-    const btn = e.target.closest('.tag-btn');
-    if (!btn) return;
-    btn.classList.toggle('selected');
-    if (btn.classList.contains('selected')) selectedTags.add(btn.dataset.value);
-    else selectedTags.delete(btn.dataset.value);
-    updateSubmit();
-  });
-
-  function updateSubmit() {
-    submitBtn.disabled = !selectedMood;
-  }
-
-  submitBtn.addEventListener('click', () => {
-    if (!selectedMood) return;
-    saveTodayLog({
-      mood: selectedMood,
-      sleep_score: selectedSleep || 0,
-      symptoms: [...selectedTags],
-      note: document.getElementById('note-input').value.trim()
-    });
-    renderCheckin();
-    renderTask();
-  });
+  let selMood = null, selSleep = null; const selTags = new Set();
+  const moodP = document.getElementById('mood-picker'), sleepP = document.getElementById('sleep-picker');
+  const tagP = document.getElementById('tag-picker'), submitBtn = document.getElementById('submit-btn');
+  moodP.addEventListener('click', e => { const b = e.target.closest('.mood-btn'); if(!b)return; moodP.querySelectorAll('.mood-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); selMood = b.dataset.value; submitBtn.disabled = false; });
+  sleepP.addEventListener('click', e => { const b = e.target.closest('.sleep-btn'); if(!b)return; sleepP.querySelectorAll('.sleep-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); selSleep = parseInt(b.dataset.value); });
+  tagP.addEventListener('click', e => { const b = e.target.closest('.tag-btn'); if(!b)return; b.classList.toggle('selected'); if(b.classList.contains('selected')) selTags.add(b.dataset.value); else selTags.delete(b.dataset.value); });
+  submitBtn.addEventListener('click', () => { if(!selMood)return; saveTodayLog({mood:selMood,sleep_score:selSleep||0,symptoms:[...selTags],note:document.getElementById('note-input').value.trim()}); renderCheckin(); renderTask(); });
 }
 
 // ═══════════════════════════════════════════════════════════
-// ── 今日小任务引擎 ─────────────────────────────
-//    根据打卡+档案选任务，日期做种子保证每天不重样
+// 小任务引擎
 // ═══════════════════════════════════════════════════════════
-
 const TASK_BANK = {
-  hot_flash: [
-    { t:'穿一件宽松透气的上衣，棉麻最好', h:'潮热来的时候脱一层比忍着好', icon:'👕' },
-    { t:'随身带一杯冰水，慢慢喝完', h:'小口喝，不要一口气灌下去', icon:'🧊' },
-    { t:'找个安静的角落深呼吸：吸气4秒，呼气6秒，做5次', h:'深呼吸能帮体温调节中枢平静下来', icon:'🫁' },
-    { t:'把空调或风扇调到微风吹着后背', h:'后背是散热最快的区域', icon:'💨' },
-  ],
-  night_sweat: [
-    { t:'睡前一杯温水放在床头', h:'出汗醒来喝一口，不用下床', icon:'💧' },
-    { t:'今晚穿纯棉睡衣睡觉，比化纤透气', h:'棉的排湿更好，半夜出汗不容易闷醒', icon:'👘' },
-    { t:'睡前开窗通风10分钟，让卧室凉爽一点', h:'入睡时室温低一点有助于深层睡眠', icon:'🪟' },
-  ],
-  poor_sleep: [
-    { t:'今晚把手机关在卧室外面', h:'屏幕蓝光会抑制褪黑素，试试看今晚睡得好不好', icon:'📱' },
-    { t:'睡前泡脚15分钟，水温热但不烫', h:'脚暖了身体会自然降温，帮助入睡', icon:'🦶' },
-    { t:'今晚提前半小时上床，不要等困了再睡', h:'熬夜会让皮质醇升高，第二天更难睡', icon:'🛏️' },
-    { t:'今天下午4点以后不喝咖啡和浓茶', h:'咖啡因在体内代谢需要6-8小时', icon:'☕' },
-  ],
-  mood_swing: [
-    { t:'跟自己说一句"激素在波动，这不是我的错"', h:'说出来比闷着好，哪怕只是自言自语', icon:'🗣️' },
-    { t:'出门走10分钟，哪怕绕小区一圈', h:'走路是最快的天然血清素调节剂', icon:'🚶' },
-    { t:'打开手机备忘录，写3件让你舒服的小事', h:'不用写大事——"今天的汤好喝"也算', icon:'✍️' },
-    { t:'放一首你最喜欢的歌，闭上眼睛听完', h:'音乐能刺激多巴胺，比刷手机有用', icon:'🎵' },
-  ],
-  joint_pain: [
-    { t:'站起来，轻轻转动手腕和脚踝各10次', h:'关节需要润滑液，活动就是最好的润滑', icon:'🤲' },
-    { t:'泡一杯胶原蛋白水，记得加一片维C', h:'胶原蛋白+维C是关节的黄金搭档', icon:'🥛' },
-    { t:'肩膀画圈：顺时针5次，逆时针5次', h:'做慢一点，到紧绷的位置停2秒', icon:'🔄' },
-  ],
-  brain_fog: [
-    { t:'今天做1件事前先写下来，做完划掉', h:'脑雾的时候靠纸笔比靠脑子可靠', icon:'📋' },
-    { t:'出门走15分钟，不看手机，看树和天空', h:'有氧运动能提高脑部血流量，记忆会好一点', icon:'🌳' },
-    { t:'把今天最重要的1件事先做了，其他放一放', h:'脑雾的日子集中精力做一件事就够了', icon:'🎯' },
-  ],
-  low_exercise: [
-    { t:'今天在房间里走5分钟，边走边听喜欢的歌', h:'不叫运动，就叫活动活动身子', icon:'🎶' },
-    { t:'站起来，踮脚尖10次', h:'办公/看电视的时候就能做，练小腿和平衡', icon:'🦵' },
-    { t:'做3个深蹲，扶着椅子背做', h:'不用担心动作标不标准，做了就是对的', icon:'🪑' },
-  ],
-  general: [
-    { t:'今天喝够6杯水，拿个大杯子放桌上', h:'围经期身体对水分需求更高，每杯不用太大', icon:'🥤' },
-    { t:'吃1份蛋白质——一个鸡蛋、一杯豆浆都算', h:'每餐至少20g蛋白质，从今天一顿开始', icon:'🥚' },
-    { t:'下午3点起来活动2分钟，伸个懒腰就好', h:'别让身体一下午都陷在沙发或椅子里', icon:'🕒' },
-    { t:'找一个人说一句谢谢，发微信也算', h:'感恩是免费的正面情绪来源', icon:'💛' },
-    { t:'今天太阳好的话，出去晒10分钟', h:'晒太阳帮助身体合成维D，对骨骼和情绪都好', icon:'☀️' },
-    { t:'今天有意识地放慢一次呼吸——吸气数4、呼气数6', h:'一次就够了，不用做大冥想', icon:'😮‍💨' },
-  ],
+  hot_flash:[{t:'穿一件宽松透气的上衣，棉麻最好',h:'潮热时脱一层比忍着好',icon:'👕'},{t:'随身带一杯冰水，慢慢喝完',h:'小口喝，不要一口气灌',icon:'🧊'},{t:'找个角落深呼吸：吸气4秒呼气6秒，做5次',h:'深呼吸帮体温中枢平静',icon:'🫁'}],
+  night_sweat:[{t:'睡前一杯温水放床头',h:'出汗醒来喝一口，不用下床',icon:'💧'},{t:'今晚穿纯棉睡衣睡觉',h:'棉的排湿更好，半夜不容易闷醒',icon:'👘'},{t:'睡前开窗通风10分钟',h:'室温低一点睡得更深',icon:'🪟'}],
+  poor_sleep:[{t:'今晚手机关在卧室外面',h:'蓝光抑制褪黑素，试试看',icon:'📱'},{t:'睡前泡脚15分钟',h:'脚暖了身体自然降温入睡',icon:'🦶'},{t:'今晚提前半小时上床',h:'熬夜让皮质醇升高更难睡',icon:'🛏️'},{t:'下午4点后不喝咖啡和浓茶',h:'咖啡因代谢需要6-8小时',icon:'☕'}],
+  mood_swing:[{t:'对自己说"激素在波动，不是我的错"',h:'说出来比闷着好',icon:'🗣️'},{t:'出门走10分钟，绕小区一圈',h:'走路是最快的血清素调节剂',icon:'🚶'},{t:'备忘录写3件让你舒服的小事',h:'"今天的汤好喝"也算',icon:'✍️'},{t:'放一首你最喜欢的歌闭眼听完',h:'音乐刺激多巴胺比刷手机有用',icon:'🎵'}],
+  joint_pain:[{t:'轻轻转动手腕脚踝各10次',h:'活动就是最好的润滑',icon:'🤲'},{t:'泡一杯胶原蛋白水加一片维C',h:'胶原蛋白+维C是关节黄金搭档',icon:'🥛'},{t:'肩膀画圈：顺5次逆5次',h:'到紧绷位置停2秒',icon:'🔄'}],
+  brain_fog:[{t:'做1件事前先写下来做完划掉',h:'脑雾靠纸笔比靠脑子可靠',icon:'📋'},{t:'出门走15分钟看树和天空',h:'有氧提高脑部血流量',icon:'🌳'},{t:'把最重要1件事先做了其他放一放',h:'脑雾日集中做一件事够了',icon:'🎯'}],
+  low_exercise:[{t:'在房间里走5分钟，边走边听歌',h:'不叫运动就叫活动身子',icon:'🎶'},{t:'站起来踮脚尖10次',h:'看电视时就能做',icon:'🦵'},{t:'做3个深蹲扶着椅子背',h:'不标准也没关系做了就好',icon:'🪑'}],
+  general:[{t:'今天喝够6杯水',h:'围经期身体需要更多水分',icon:'🥤'},{t:'吃1份蛋白质——鸡蛋豆浆都算',h:'每餐至少20g从今天一顿开始',icon:'🥚'},{t:'下午3点起来活动2分钟',h:'别让身体一下午陷在沙发里',icon:'🕒'},{t:'找一个人说谢谢发微信也算',h:'感恩是免费的正面情绪来源',icon:'💛'},{t:'今天太阳好出去晒10分钟',h:'晒太阳帮助合成维D',icon:'☀️'},{t:'有意识地放慢一次呼吸',h:'吸气数4呼气数6一次就够了',icon:'😮‍💨'}],
 };
-
 const TASKS_KEY = 'stacy_task_status';
-
-function getTaskStatus() {
-  const today = getToday();
-  try {
-    const status = JSON.parse(localStorage.getItem(TASKS_KEY) || '{}');
-    return { date: status.date, done: status.date === today && status.done };
-  } catch { return { date: null, done: false }; }
+function getTaskStatus() { const today=getToday(); try{const s=JSON.parse(localStorage.getItem(TASKS_KEY)||'{}');return{date:s.date,done:s.date===today&&s.done};}catch{return{date:null,done:false}} }
+function markTaskDone(){ localStorage.setItem(TASKS_KEY,JSON.stringify({date:getToday(),done:true})); renderTask(); }
+function pickTask(){
+  const todayLog=getTodayLog();let profile={};try{profile=JSON.parse(localStorage.getItem('stacy_profile')||'{}');}catch{}
+  const c=[];if(todayLog){if(todayLog.sleep_score&&todayLog.sleep_score<=2)c.push('poor_sleep');if(todayLog.mood==='😤'||todayLog.mood==='😢')c.push('mood_swing');if(todayLog.mood==='😴')c.push('poor_sleep');if(todayLog.symptoms)todayLog.symptoms.forEach(s=>{if(s!=='none'&&TASK_BANK[s])c.push(s)})}
+  if(profile.exercise==='rare'||profile.exercise==='occasional')c.push('low_exercise');
+  const unique=[...new Set(c)];let pool=[];unique.forEach(k=>{pool=pool.concat(TASK_BANK[k]||[])});
+  if(!pool.length)pool=[...TASK_BANK.general];
+  return pool[parseInt(getToday().replace(/-/g,''))%pool.length];
 }
-
-function markTaskDone() {
-  const today = getToday();
-  localStorage.setItem(TASKS_KEY, JSON.stringify({ date: today, done: true }));
-  renderTask();
-}
-
-function pickTask() {
-  const todayLog = getTodayLog();
-  let profile = {};
-  try { profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}'); } catch {}
-
-  // 收集匹配条件
-  const conditions = [];
-
-  // 从打卡数据选
-  if (todayLog) {
-    if (todayLog.sleep_score && todayLog.sleep_score <= 2) conditions.push('poor_sleep');
-    if (todayLog.mood === '😤' || todayLog.mood === '😢') conditions.push('mood_swing');
-    if (todayLog.mood === '😴') conditions.push('poor_sleep');
-    if (todayLog.symptoms) {
-      todayLog.symptoms.forEach(s => {
-        if (s !== 'none' && TASK_BANK[s]) conditions.push(s);
-      });
-    }
-  }
-
-  // 从档案补条件：运动少
-  if (profile.exercise === 'rare' || profile.exercise === 'occasional') {
-    conditions.push('low_exercise');
-  }
-
-  // 去重 + 收集候选任务池
-  const unique = [...new Set(conditions)];
-  let candidates = [];
-  unique.forEach(key => {
-    candidates = candidates.concat(TASK_BANK[key] || []);
-  });
-
-  // 没有匹配 → 用通用池
-  if (candidates.length === 0) {
-    candidates = [...TASK_BANK.general];
-    // 混入 1-2 个通用任务以提高多样性
-  }
-
-  // 日期种子选取
-  const seed = parseInt(getToday().replace(/-/g, ''));
-  const idx = seed % candidates.length;
-  // 把种子出来的 + 它后面一个放到前面，增加多样性
-  const rotated = [...candidates.slice(idx), ...candidates.slice(0, idx)];
-  return rotated[0];
-}
-
-function renderTask() {
-  const card = document.getElementById('task-card');
-  const bodyEl = document.getElementById('task-body');
-  const hintEl = document.getElementById('task-hint');
-  const btn = document.getElementById('task-done-btn');
-  const status = getTaskStatus();
-
-  if (status.done) {
-    card.style.display = '';
-    bodyEl.innerHTML = '✅ <span class="highlight">今天的任务完成啦</span>';
-    hintEl.textContent = '任务完成是给自己最好的礼物。明天会有新的。';
-    btn.textContent = '已完成';
-    btn.className = 'task-done-btn done';
-    btn.onclick = null;
-    return;
-  }
-
-  const task = pickTask();
-  card.style.display = '';
-  bodyEl.innerHTML = `<span class="highlight">${task.icon}</span> ${task.t}`;
-  hintEl.textContent = task.h;
-  btn.textContent = '点我标记完成';
-  btn.className = 'task-done-btn';
-  btn.onclick = markTaskDone;
+function renderTask(){
+  const card=document.getElementById('task-card'),body=document.getElementById('task-body'),hint=document.getElementById('task-hint'),btn=document.getElementById('task-done-btn');
+  const status=getTaskStatus();
+  if(status.done){card.style.display='';body.innerHTML='✅ <span style="color:#22c55e;font-weight:600">今天的任务完成啦</span>';hint.textContent='明天会有新的';btn.textContent='✓';btn.className='task-done-btn done';btn.onclick=null;return}
+  const task=pickTask();card.style.display='';body.innerHTML=`<span style="color:#22c55e;font-weight:600">${task.icon}</span> ${task.t}`;hint.textContent=task.h;btn.textContent='完成';btn.className='task-done-btn';btn.onclick=markTaskDone;
 }
 
 // ═══════════════════════════════════════════════════════════
-// ── 对话记录 ────────────────────────────────
+// 周报入口
 // ═══════════════════════════════════════════════════════════
+function renderWeeklyBanner(){
+  const total = loadAllLogs().length;
+  const chats = (JSON.parse(localStorage.getItem('stacy_logs')||'[]')).length;
+  if (total > 0) document.getElementById('weekly-icon-btn').style.display = '';
+}
 
-function renderLogs() {
-  const listEl = document.getElementById('log-list');
-  let logs = [];
-  try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
-  if (!logs.length) return;
-  const recent = logs.slice(-3).reverse();
-  listEl.innerHTML = '';
-  recent.forEach(log => {
-    const time = log.time || (log.created_at ? new Date(log.created_at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '');
-    const msg = log.userMessage || log.user_message || '';
-    const item = document.createElement('div');
-    item.className = 'log-item';
-    item.innerHTML = `<div class="log-time">${escapeHTML(time)}</div><div class="log-preview">${escapeHTML(msg.slice(0,20))}${msg.length > 20 ? '…' : ''}</div>`;
-    listEl.appendChild(item);
+// ═══════════════════════════════════════════════════════════
+// 对话记录
+// ═══════════════════════════════════════════════════════════
+function renderLogs(){
+  const el=document.getElementById('log-list');
+  let logs=[];try{logs=JSON.parse(localStorage.getItem('stacy_logs')||'[]');}catch{}
+  if(!logs.length)return;
+  const recent=logs.slice(-3).reverse();el.innerHTML='';
+  recent.forEach(l=>{
+    const time=l.time||(l.created_at?new Date(l.created_at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'');
+    const msg=(l.userMessage||l.user_message||'').slice(0,18);
+    const item=document.createElement('div');item.className='log-item';
+    item.innerHTML=`<div class="log-time">${time}</div><div class="log-preview">${msg}${msg.length>=18?'…':''}</div>`;
+    el.appendChild(item);
   });
 }
-
-function escapeHTML(s) {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
-}
+function e(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 // ═══════════════════════════════════════════════════════════
-// ── 周报入口 ────────────────────────────────
+// 初始化
 // ═══════════════════════════════════════════════════════════
-
-function renderWeeklyBanner() {
-  const banner = document.getElementById('weekly-banner');
-  const preview = document.getElementById('weekly-preview');
-  const allLogs = loadAllLogs();
-  if (allLogs.length < 2) { banner.style.display = 'none'; return; }
-  const days = allLogs.length;
-  const logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
-  const chats = logs.length;
-  banner.style.display = '';
-  preview.textContent = `打卡${days}天 · 对话${chats}次`;
-}
-
-// ═══════════════════════════════════════════════════════════
-// ── 初始化 ──────────────────────────────────
-// ═══════════════════════════════════════════════════════════
-
-(function() {
-  const inviteCode = localStorage.getItem('stacy_invite_code');
-  if (!inviteCode) { window.location.replace('index.html'); return; }
-  const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
-  if (!profile || !profile.name) { window.location.replace('onboarding.html'); return; }
-
-  const hour = new Date().getHours();
-  let timeGreeting = '早上好';
-  if (hour >= 12 && hour < 18) timeGreeting = '下午好';
-  if (hour >= 18) timeGreeting = '晚上好';
-  document.getElementById('greeting').innerHTML =
-    `${timeGreeting}，<span class="name">${escapeHTML(profile.name)}</span>`;
-
-  renderCheckin();
-  renderTask();
-  renderLogs();
-  renderWeeklyBanner();
+(function(){
+  const code=localStorage.getItem('stacy_invite_code');if(!code){location.replace('index.html');return}
+  const p=JSON.parse(localStorage.getItem('stacy_profile')||'null');if(!p||!p.name){location.replace('onboarding.html');return}
+  const h=new Date().getHours();let g='早上好';if(h>=12&&h<18)g='下午好';if(h>=18)g='晚上好';
+  document.getElementById('greeting').innerHTML=`${g}，<span class="name">${e(p.name)}</span>`;
+  renderCheckin();renderTask();renderLogs();renderWeeklyBanner();
 })();
-
-// ── 按钮 ────────────────────────────────────
-document.getElementById('cta-btn').addEventListener('click', () => {
-  window.location.href = 'index.html?chat=1';
-});
-document.getElementById('profile-btn').addEventListener('click', () => {
-  alert('档案功能即将上线');
-});
+document.getElementById('cta-btn').addEventListener('click',()=>{location.href='index.html?chat=1';});
+document.getElementById('profile-btn').addEventListener('click',()=>{alert('档案功能即将上线');});
 </script>
 </body>
 </html>
