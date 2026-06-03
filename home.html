@@ -95,6 +95,27 @@
     .submit-btn:active{opacity:0.85;transform:scale(0.97)}
     .submit-btn:disabled{opacity:0.4;cursor:default}
 
+    /* ── 今日任务卡片 ─────── */
+    .task-card{
+      margin:0 20px 24px;background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(16,185,129,0.05));
+      border:1px solid rgba(34,197,94,0.12);border-radius:var(--radius);padding:20px;
+    }
+    .task-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+    .task-header .icon{font-size:20px}
+    .task-header .label{font-size:0.72rem;color:#22c55e;letter-spacing:1px;font-weight:500}
+    .task-body{font-size:0.95rem;color:#fff;line-height:1.6}
+    .task-body .highlight{color:#22c55e;font-weight:600}
+    .task-hint{font-size:0.72rem;color:var(--text-muted);margin-top:8px;line-height:1.5}
+    .task-done-btn{
+      display:inline-flex;align-items:center;gap:4px;margin-top:12px;padding:6px 16px;
+      border-radius:20px;border:1px solid rgba(34,197,94,0.3);background:transparent;
+      color:#22c55e;font-family:inherit;font-size:0.8rem;cursor:pointer;
+      transition:background 0.2s;
+    }
+    .task-done-btn:active{background:rgba(34,197,94,0.1)}
+    .task-done-btn.done{border-color:rgba(34,197,94,0.5);background:rgba(34,197,94,0.12)}
+    .task-done-btn.done::before{content:'✅ '}
+
     /* ── CTA 按钮 ───────────── */
     .cta-wrap{padding:0 20px;margin-bottom:24px}
     .cta-btn{
@@ -128,6 +149,16 @@
 <div class="checkin-card" id="checkin-card">
   <div class="checkin-title"><span class="dot"></span>今日身体打卡</div>
   <div id="checkin-content"></div>
+</div>
+
+<div class="task-card" id="task-card" style="display:none">
+  <div class="task-header">
+    <span class="icon">🎯</span>
+    <span class="label">今日小任务</span>
+  </div>
+  <div class="task-body" id="task-body"></div>
+  <div class="task-hint" id="task-hint"></div>
+  <button class="task-done-btn" id="task-done-btn">点我标记完成</button>
 </div>
 
 <div class="cta-wrap">
@@ -313,7 +344,150 @@ function bindFormEvents() {
       note: document.getElementById('note-input').value.trim()
     });
     renderCheckin();
+    renderTask();
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 今日小任务引擎 ─────────────────────────────
+//    根据打卡+档案选任务，日期做种子保证每天不重样
+// ═══════════════════════════════════════════════════════════
+
+const TASK_BANK = {
+  hot_flash: [
+    { t:'穿一件宽松透气的上衣，棉麻最好', h:'潮热来的时候脱一层比忍着好', icon:'👕' },
+    { t:'随身带一杯冰水，慢慢喝完', h:'小口喝，不要一口气灌下去', icon:'🧊' },
+    { t:'找个安静的角落深呼吸：吸气4秒，呼气6秒，做5次', h:'深呼吸能帮体温调节中枢平静下来', icon:'🫁' },
+    { t:'把空调或风扇调到微风吹着后背', h:'后背是散热最快的区域', icon:'💨' },
+  ],
+  night_sweat: [
+    { t:'睡前一杯温水放在床头', h:'出汗醒来喝一口，不用下床', icon:'💧' },
+    { t:'今晚穿纯棉睡衣睡觉，比化纤透气', h:'棉的排湿更好，半夜出汗不容易闷醒', icon:'👘' },
+    { t:'睡前开窗通风10分钟，让卧室凉爽一点', h:'入睡时室温低一点有助于深层睡眠', icon:'🪟' },
+  ],
+  poor_sleep: [
+    { t:'今晚把手机关在卧室外面', h:'屏幕蓝光会抑制褪黑素，试试看今晚睡得好不好', icon:'📱' },
+    { t:'睡前泡脚15分钟，水温热但不烫', h:'脚暖了身体会自然降温，帮助入睡', icon:'🦶' },
+    { t:'今晚提前半小时上床，不要等困了再睡', h:'熬夜会让皮质醇升高，第二天更难睡', icon:'🛏️' },
+    { t:'今天下午4点以后不喝咖啡和浓茶', h:'咖啡因在体内代谢需要6-8小时', icon:'☕' },
+  ],
+  mood_swing: [
+    { t:'跟自己说一句"激素在波动，这不是我的错"', h:'说出来比闷着好，哪怕只是自言自语', icon:'🗣️' },
+    { t:'出门走10分钟，哪怕绕小区一圈', h:'走路是最快的天然血清素调节剂', icon:'🚶' },
+    { t:'打开手机备忘录，写3件让你舒服的小事', h:'不用写大事——"今天的汤好喝"也算', icon:'✍️' },
+    { t:'放一首你最喜欢的歌，闭上眼睛听完', h:'音乐能刺激多巴胺，比刷手机有用', icon:'🎵' },
+  ],
+  joint_pain: [
+    { t:'站起来，轻轻转动手腕和脚踝各10次', h:'关节需要润滑液，活动就是最好的润滑', icon:'🤲' },
+    { t:'泡一杯胶原蛋白水，记得加一片维C', h:'胶原蛋白+维C是关节的黄金搭档', icon:'🥛' },
+    { t:'肩膀画圈：顺时针5次，逆时针5次', h:'做慢一点，到紧绷的位置停2秒', icon:'🔄' },
+  ],
+  brain_fog: [
+    { t:'今天做1件事前先写下来，做完划掉', h:'脑雾的时候靠纸笔比靠脑子可靠', icon:'📋' },
+    { t:'出门走15分钟，不看手机，看树和天空', h:'有氧运动能提高脑部血流量，记忆会好一点', icon:'🌳' },
+    { t:'把今天最重要的1件事先做了，其他放一放', h:'脑雾的日子集中精力做一件事就够了', icon:'🎯' },
+  ],
+  low_exercise: [
+    { t:'今天在房间里走5分钟，边走边听喜欢的歌', h:'不叫运动，就叫活动活动身子', icon:'🎶' },
+    { t:'站起来，踮脚尖10次', h:'办公/看电视的时候就能做，练小腿和平衡', icon:'🦵' },
+    { t:'做3个深蹲，扶着椅子背做', h:'不用担心动作标不标准，做了就是对的', icon:'🪑' },
+  ],
+  general: [
+    { t:'今天喝够6杯水，拿个大杯子放桌上', h:'围经期身体对水分需求更高，每杯不用太大', icon:'🥤' },
+    { t:'吃1份蛋白质——一个鸡蛋、一杯豆浆都算', h:'每餐至少20g蛋白质，从今天一顿开始', icon:'🥚' },
+    { t:'下午3点起来活动2分钟，伸个懒腰就好', h:'别让身体一下午都陷在沙发或椅子里', icon:'🕒' },
+    { t:'找一个人说一句谢谢，发微信也算', h:'感恩是免费的正面情绪来源', icon:'💛' },
+    { t:'今天太阳好的话，出去晒10分钟', h:'晒太阳帮助身体合成维D，对骨骼和情绪都好', icon:'☀️' },
+    { t:'今天有意识地放慢一次呼吸——吸气数4、呼气数6', h:'一次就够了，不用做大冥想', icon:'😮‍💨' },
+  ],
+};
+
+const TASKS_KEY = 'stacy_task_status';
+
+function getTaskStatus() {
+  const today = getToday();
+  try {
+    const status = JSON.parse(localStorage.getItem(TASKS_KEY) || '{}');
+    return { date: status.date, done: status.date === today && status.done };
+  } catch { return { date: null, done: false }; }
+}
+
+function markTaskDone() {
+  const today = getToday();
+  localStorage.setItem(TASKS_KEY, JSON.stringify({ date: today, done: true }));
+  renderTask();
+}
+
+function pickTask() {
+  const todayLog = getTodayLog();
+  let profile = {};
+  try { profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}'); } catch {}
+
+  // 收集匹配条件
+  const conditions = [];
+
+  // 从打卡数据选
+  if (todayLog) {
+    if (todayLog.sleep_score && todayLog.sleep_score <= 2) conditions.push('poor_sleep');
+    if (todayLog.mood === '😤' || todayLog.mood === '😢') conditions.push('mood_swing');
+    if (todayLog.mood === '😴') conditions.push('poor_sleep');
+    if (todayLog.symptoms) {
+      todayLog.symptoms.forEach(s => {
+        if (s !== 'none' && TASK_BANK[s]) conditions.push(s);
+      });
+    }
+  }
+
+  // 从档案补条件：运动少
+  if (profile.exercise === 'rare' || profile.exercise === 'occasional') {
+    conditions.push('low_exercise');
+  }
+
+  // 去重 + 收集候选任务池
+  const unique = [...new Set(conditions)];
+  let candidates = [];
+  unique.forEach(key => {
+    candidates = candidates.concat(TASK_BANK[key] || []);
+  });
+
+  // 没有匹配 → 用通用池
+  if (candidates.length === 0) {
+    candidates = [...TASK_BANK.general];
+    // 混入 1-2 个通用任务以提高多样性
+  }
+
+  // 日期种子选取
+  const seed = parseInt(getToday().replace(/-/g, ''));
+  const idx = seed % candidates.length;
+  // 把种子出来的 + 它后面一个放到前面，增加多样性
+  const rotated = [...candidates.slice(idx), ...candidates.slice(0, idx)];
+  return rotated[0];
+}
+
+function renderTask() {
+  const card = document.getElementById('task-card');
+  const bodyEl = document.getElementById('task-body');
+  const hintEl = document.getElementById('task-hint');
+  const btn = document.getElementById('task-done-btn');
+  const status = getTaskStatus();
+
+  if (status.done) {
+    card.style.display = '';
+    bodyEl.innerHTML = '✅ <span class="highlight">今天的任务完成啦</span>';
+    hintEl.textContent = '任务完成是给自己最好的礼物。明天会有新的。';
+    btn.textContent = '已完成';
+    btn.className = 'task-done-btn done';
+    btn.onclick = null;
+    return;
+  }
+
+  const task = pickTask();
+  card.style.display = '';
+  bodyEl.innerHTML = `<span class="highlight">${task.icon}</span> ${task.t}`;
+  hintEl.textContent = task.h;
+  btn.textContent = '点我标记完成';
+  btn.className = 'task-done-btn';
+  btn.onclick = markTaskDone;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -361,6 +535,7 @@ function escapeHTML(s) {
     `${timeGreeting}，<span class="name">${escapeHTML(profile.name)}</span>`;
 
   renderCheckin();
+  renderTask();
   renderLogs();
 })();
 
