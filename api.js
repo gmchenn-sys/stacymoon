@@ -95,9 +95,31 @@ function buildProfileSection() {
   } catch { return ''; }
 }
 
+// ── 今日打卡记录（来自 home.html 的每日打卡）──
+function buildDailyReport() {
+  try {
+    const logs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+    const today = new Date().toISOString().slice(0,10);
+    const todayLog = logs.find(l => l.date === today);
+    if (!todayLog) return '';
+    const lines = [];
+    lines.push('【今日身体报告】');
+    if (todayLog.mood) {
+      const moodMap = { '😊':'不错', '😐':'一般', '😤':'烦躁', '😢':'低落', '😴':'很累' };
+      lines.push(`今天心情：${moodMap[todayLog.mood] || todayLog.mood}`);
+    }
+    if (todayLog.sleep_score) lines.push(`昨晚睡眠：${todayLog.sleep_score}/5分`);
+    if (todayLog.symptoms && todayLog.symptoms.length > 0) {
+      const labels = todayLog.symptoms.map(s => SYMPTOM_LABELS[s] || s).join('、');
+      lines.push(`今天症状：${labels}`);
+    }
+    if (todayLog.note) lines.push(`今天备注：${todayLog.note}`);
+    return '\n\n' + lines.join('\n');
+  } catch { return ''; }
+}
+
 function getSystemPrompt() {
-  const profile = buildProfileSection();
-  return SYSTEM_PROMPT_BASE + profile;
+  return SYSTEM_PROMPT_BASE + buildProfileSection() + buildDailyReport();
 }
 
 let conversationHistory = [];

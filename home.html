@@ -14,7 +14,7 @@
     body{
       font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
       max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
-      -webkit-font-smoothing:antialiased;
+      -webkit-font-smoothing:antialiased;padding-bottom:40px;
     }
 
     /* ── 顶部栏 ─────────────── */
@@ -31,18 +31,72 @@
     }
     .profile-btn:hover{border-color:var(--accent);color:var(--accent)}
 
-    /* ── 天气卡片 ───────────── */
-    .weather-card{
+    /* ── 打卡卡片 ───────────── */
+    .checkin-card{
       margin:0 20px 24px;background:linear-gradient(135deg,rgba(249,115,22,0.12),rgba(139,92,246,0.08));
       border:1px solid rgba(249,115,22,0.15);border-radius:var(--radius);padding:24px 20px;
     }
-    .weather-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-    .weather-emoji{font-size:32px}
-    .weather-label{font-size:0.78rem;color:var(--text-muted);letter-spacing:1px}
-    .weather-msg{font-size:1rem;color:#fff;line-height:1.6}
+    .checkin-title{font-size:0.78rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .checkin-title .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+    .checkin-done{text-align:center;padding:12px 0}
+    .checkin-done .icon{font-size:32px;margin-bottom:8px}
+    .checkin-done .summary{font-size:0.9rem;color:var(--text);line-height:1.6}
+    .checkin-done .time{font-size:0.72rem;color:var(--text-muted);margin-top:4px}
+
+    /* ── 行 ─────────────── */
+    .field-row{display:flex;align-items:center;margin-bottom:14px;gap:10px}
+    .field-label{font-size:0.8rem;color:var(--text-muted);width:56px;flex-shrink:0}
+
+    /* ── 心情 emoji ─────── */
+    .mood-picker{display:flex;gap:8px;flex:1;flex-wrap:wrap}
+    .mood-btn{
+      width:42px;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+      font-size:22px;cursor:pointer;transition:border-color 0.2s,background 0.2s,transform 0.15s;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .mood-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);transform:scale(1.1)}
+    .mood-btn:active{transform:scale(0.95)}
+
+    /* ── 睡眠评分 ─────── */
+    .sleep-picker{display:flex;gap:8px;flex:1}
+    .sleep-btn{
+      width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text-muted);font-size:0.85rem;font-weight:600;cursor:pointer;
+      transition:border-color 0.2s,background 0.2s,color 0.2s,transform 0.15s;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .sleep-btn.selected{border-color:var(--accent);background:var(--accent);color:#fff;transform:scale(1.08)}
+    .sleep-btn:active{transform:scale(0.95)}
+
+    /* ── 症状标签 ─────── */
+    .tag-picker{display:flex;flex-wrap:wrap;gap:8px;flex:1}
+    .tag-btn{
+      padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text-muted);font-size:0.8rem;cursor:pointer;white-space:nowrap;
+      transition:border-color 0.2s,background 0.2s,color 0.2s;
+    }
+    .tag-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);color:var(--accent)}
+    .tag-btn:active{background:rgba(249,115,22,0.25)}
+
+    /* ── 备注 ──────────── */
+    .note-input{
+      flex:1;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text);font-family:inherit;font-size:0.85rem;padding:0 12px;outline:none;
+    }
+    .note-input:focus{border-color:var(--accent)}
+    .note-input::placeholder{color:#444}
+
+    /* ── 提交按钮 ──────── */
+    .submit-btn{
+      width:100%;height:44px;border-radius:12px;border:none;margin-top:16px;
+      background:var(--accent);color:#fff;font-family:inherit;font-size:0.9rem;font-weight:500;
+      cursor:pointer;transition:opacity 0.2s,transform 0.15s;
+    }
+    .submit-btn:active{opacity:0.85;transform:scale(0.97)}
+    .submit-btn:disabled{opacity:0.4;cursor:default}
 
     /* ── CTA 按钮 ───────────── */
-    .cta-wrap{padding:0 20px;margin-bottom:32px}
+    .cta-wrap{padding:0 20px;margin-bottom:24px}
     .cta-btn{
       width:100%;height:68px;border-radius:20px;border:none;
       background:linear-gradient(135deg,var(--accent),#ea580c);
@@ -53,8 +107,8 @@
     .cta-btn:active{opacity:0.85;transform:scale(0.97)}
 
     /* ── 最近记录 ───────────── */
-    .recent-section{padding:0 20px 40px;flex:1}
-    .recent-title{font-size:0.75rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:12px;text-transform:uppercase}
+    .recent-section{padding:0 20px 40px}
+    .recent-title{font-size:0.75rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:12px}
     .log-item{
       padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
       margin-bottom:10px;
@@ -62,8 +116,6 @@
     .log-time{font-size:0.7rem;color:var(--text-muted);margin-bottom:6px}
     .log-preview{font-size:0.85rem;color:var(--text);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .log-empty{text-align:center;padding:40px 20px;color:var(--text-muted);font-size:0.85rem;line-height:1.8}
-
-    .subtitle{font-size:0.8rem;color:var(--text-muted);margin-top:4px;line-height:1.5}
   </style>
 </head>
 <body>
@@ -73,12 +125,9 @@
   <button class="profile-btn" id="profile-btn" title="我的档案">📋</button>
 </div>
 
-<div class="weather-card" id="weather-card">
-  <div class="weather-top">
-    <span class="weather-emoji" id="weather-emoji">🌤️</span>
-    <span class="weather-label">今日身体天气</span>
-  </div>
-  <div class="weather-msg" id="weather-msg"></div>
+<div class="checkin-card" id="checkin-card">
+  <div class="checkin-title"><span class="dot"></span>今日身体打卡</div>
+  <div id="checkin-content"></div>
 </div>
 
 <div class="cta-wrap">
@@ -93,39 +142,183 @@
 </div>
 
 <script>
-// ── 身体天气预设文案 ─────────────────────────
-const symptomMessages = {
-  hot_flash:     { emoji:'🔥', msgs:['今天身体可能比较燥热，找个凉快的地方歇一歇','潮热天气，多喝点凉白开，穿宽松透气的衣服','今天体温波动大，随身带把小扇子会舒服很多'] },
-  night_sweat:   { emoji:'💧', msgs:['昨晚出汗多的话记得补充水分','夜间出汗是身体在调节温度，不用太在意','睡前往床头放杯水，出汗后喝一口'] },
-  poor_sleep:    { emoji:'😴', msgs:['昨晚睡得不太好？今天节奏放慢一点没关系','睡眠浅的日子就当是身体在提醒你多休息','今天试试睡前泡个脚，11点前上床'] },
-  mood_swing:    { emoji:'🎢', msgs:['情绪像坐过山车是激素的事，不是你的问题','今天允许自己情绪自由来去，不用压抑','心里有什么都可以跟 Stacy 说，不用一个人扛'] },
-  joint_pain:    { emoji:'🦴', msgs:['关节不太舒服的时候，温柔活动比不动好','今天做点轻缓的拉伸，关节需要运动润滑','关节在提醒你：该起来走动一下了'] },
-  brain_fog:     { emoji:'🌫️', msgs:['脑雾的日子把要紧事先做，不重要的事放一放','今天记不住东西不是你的错，是激素在捣乱','脑子不太清楚的时候出门散个步比硬扛有用'] },
-};
-const fallbackWeather = { emoji:'🌤️', msgs:['今天也是新的一天，照顾好自己','没什么特别提醒，保持好心情就是最好的药','规律生活就是最好的保养品，你今天做到了吗？'] };
+// ═══════════════════════════════════════════════════════════
+// ── 打卡配置 ────────────────────────────────
+// ═══════════════════════════════════════════════════════════
 
-function renderWeather(profile) {
-  const symptoms = Array.isArray(profile.symptoms) ? profile.symptoms : [];
-  console.log('[WEATHER] symptoms:', symptoms);
-  if (symptoms.length === 0 || (symptoms.length === 1 && symptoms[0] === 'none')) {
-    setWeather(fallbackWeather);
-    return;
+const MOODS = [
+  { emoji:'😊', label:'不错' },
+  { emoji:'😐', label:'一般' },
+  { emoji:'😤', label:'烦躁' },
+  { emoji:'😢', label:'低落' },
+  { emoji:'😴', label:'很累' },
+];
+
+const SYMPTOM_TAGS = [
+  { key:'hot_flash', label:'潮热' },
+  { key:'night_sweat', label:'出汗' },
+  { key:'poor_sleep', label:'睡不好' },
+  { key:'mood_swing', label:'情绪波动' },
+  { key:'joint_pain', label:'关节疼' },
+  { key:'brain_fog', label:'脑雾' },
+];
+
+const SYMPTOM_LABEL_MAP = {};
+SYMPTOM_TAGS.forEach(s => SYMPTOM_LABEL_MAP[s.key] = s.label);
+
+const STORAGE_KEY = 'stacy_daily_logs';
+
+// ═══════════════════════════════════════════════════════════
+// ── 数据读写 ────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function getToday() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function loadAllLogs() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveAllLogs(logs) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+}
+
+function getTodayLog() {
+  const today = getToday();
+  return loadAllLogs().find(l => l.date === today) || null;
+}
+
+function saveTodayLog(data) {
+  const logs = loadAllLogs();
+  const today = getToday();
+  const idx = logs.findIndex(l => l.date === today);
+  data.date = today;
+  if (idx >= 0) logs[idx] = data;
+  else logs.push(data);
+  saveAllLogs(logs);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 渲染 ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function renderCheckin() {
+  const container = document.getElementById('checkin-content');
+  const todayLog = getTodayLog();
+
+  if (todayLog) {
+    renderCheckinDone(container, todayLog);
+  } else {
+    renderCheckinForm(container);
   }
-  const dateSeed = parseInt(new Date().toISOString().slice(0,10).replace(/-/g,''));
-  const validSymptoms = symptoms.filter(s => s !== 'none');
-  const pickIdx = dateSeed % validSymptoms.length;
-  const picked = validSymptoms[pickIdx];
-  const cfg = symptomMessages[picked] || fallbackWeather;
-  console.log('[WEATHER] picked:', picked, 'cfg:', !!cfg);
-  setWeather(cfg);
 }
 
-function setWeather(cfg) {
-  document.getElementById('weather-emoji').textContent = cfg.emoji;
-  const msgIdx = new Date().getDate() % cfg.msgs.length;
-  document.getElementById('weather-msg').textContent = cfg.msgs[msgIdx];
-  console.log('[WEATHER] set:', cfg.emoji, cfg.msgs[msgIdx].slice(0,20));
+function renderCheckinDone(container, log) {
+  const moodLabel = MOODS.find(m => m.emoji === log.mood);
+  const symptomsStr = (log.symptoms || []).map(s => SYMPTOM_LABEL_MAP[s] || s).join('、') || '无';
+  const sleepStr = log.sleep_score ? log.sleep_score + '分' : '';
+  const parts = [];
+  if (moodLabel) parts.push('心情' + moodLabel.label);
+  if (sleepStr) parts.push('睡眠' + sleepStr);
+  if (symptomsStr !== '无') parts.push(symptomsStr);
+  if (log.note) parts.push('"' + log.note + '"');
+
+  container.innerHTML = `
+    <div class="checkin-done">
+      <div class="icon">✅</div>
+      <div class="summary">${parts.join(' · ')}</div>
+      <div class="time">今天已打卡 · 跟 Stacy 聊聊今天的感受吧</div>
+    </div>`;
 }
+
+function renderCheckinForm(container) {
+  container.innerHTML = `
+    <div class="field-row">
+      <span class="field-label">心情</span>
+      <div class="mood-picker" id="mood-picker">
+        ${MOODS.map(m => `<button class="mood-btn" data-value="${m.emoji}" title="${m.label}">${m.emoji}</button>`).join('')}
+      </div>
+    </div>
+    <div class="field-row">
+      <span class="field-label">睡眠</span>
+      <div class="sleep-picker" id="sleep-picker">
+        ${[1,2,3,4,5].map(n => `<button class="sleep-btn" data-value="${n}">${n}</button>`).join('')}
+      </div>
+    </div>
+    <div class="field-row">
+      <span class="field-label">症状</span>
+      <div class="tag-picker" id="tag-picker">
+        ${SYMPTOM_TAGS.map(t => `<button class="tag-btn" data-value="${t.key}">${t.label}</button>`).join('')}
+      </div>
+    </div>
+    <div class="field-row">
+      <span class="field-label">备注</span>
+      <input class="note-input" id="note-input" placeholder="还想说什么…" maxlength="60">
+    </div>
+    <button class="submit-btn" id="submit-btn">记录今天的感受</button>
+  `;
+
+  bindFormEvents();
+}
+
+function bindFormEvents() {
+  let selectedMood = null;
+  let selectedSleep = null;
+  const selectedTags = new Set();
+
+  const moodPicker = document.getElementById('mood-picker');
+  const sleepPicker = document.getElementById('sleep-picker');
+  const tagPicker = document.getElementById('tag-picker');
+  const submitBtn = document.getElementById('submit-btn');
+
+  moodPicker.addEventListener('click', e => {
+    const btn = e.target.closest('.mood-btn');
+    if (!btn) return;
+    moodPicker.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedMood = btn.dataset.value;
+    updateSubmit();
+  });
+
+  sleepPicker.addEventListener('click', e => {
+    const btn = e.target.closest('.sleep-btn');
+    if (!btn) return;
+    sleepPicker.querySelectorAll('.sleep-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedSleep = parseInt(btn.dataset.value);
+    updateSubmit();
+  });
+
+  tagPicker.addEventListener('click', e => {
+    const btn = e.target.closest('.tag-btn');
+    if (!btn) return;
+    btn.classList.toggle('selected');
+    if (btn.classList.contains('selected')) selectedTags.add(btn.dataset.value);
+    else selectedTags.delete(btn.dataset.value);
+    updateSubmit();
+  });
+
+  function updateSubmit() {
+    submitBtn.disabled = !selectedMood;
+  }
+
+  submitBtn.addEventListener('click', () => {
+    if (!selectedMood) return;
+    saveTodayLog({
+      mood: selectedMood,
+      sleep_score: selectedSleep || 0,
+      symptoms: [...selectedTags],
+      note: document.getElementById('note-input').value.trim()
+    });
+    renderCheckin();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ── 对话记录 ────────────────────────────────
+// ═══════════════════════════════════════════════════════════
 
 function renderLogs() {
   const listEl = document.getElementById('log-list');
@@ -150,14 +343,15 @@ function escapeHTML(s) {
   return div.innerHTML;
 }
 
-// ── 重定向 + 初始化 ──────────────────────────
+// ═══════════════════════════════════════════════════════════
+// ── 初始化 ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
 (function() {
   const inviteCode = localStorage.getItem('stacy_invite_code');
   if (!inviteCode) { window.location.replace('index.html'); return; }
-
   const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
   if (!profile || !profile.name) { window.location.replace('onboarding.html'); return; }
-  console.log('[HOME] profile:', JSON.stringify(profile).slice(0, 200));
 
   const hour = new Date().getHours();
   let timeGreeting = '早上好';
@@ -166,7 +360,7 @@ function escapeHTML(s) {
   document.getElementById('greeting').innerHTML =
     `${timeGreeting}，<span class="name">${escapeHTML(profile.name)}</span>`;
 
-  renderWeather(profile);
+  renderCheckin();
   renderLogs();
 })();
 
