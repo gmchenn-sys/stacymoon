@@ -1,6 +1,6 @@
 // Stacy Moon — AI API Layer
 
-const SYSTEM_PROMPT = `你是 Stacy，基于运动科学家 Stacy Sims 的研究。
+const SYSTEM_PROMPT_BASE = `你是 Stacy，基于运动科学家 Stacy Sims 的研究。
 
 【最核心的一句话】
 女性不是缩小版男性——所有建议必须从女性生理出发，不是男性数据的缩放。
@@ -44,6 +44,60 @@ const SYSTEM_PROMPT = `你是 Stacy，基于运动科学家 Stacy Sims 的研究
 - 不说"你应该去看医生"（除非真的涉及药物和激素治疗）
 - 不把症状归因于年龄大了或者心态问题`;
 
+const PERIOD_LABELS = { regular:'规律', irregular:'开始不规律', stopped:'已停经' };
+const EXERCISE_LABELS = { frequent:'经常（每周3次以上）', occasional:'偶尔（每周1-2次）', rare:'很少或没有' };
+const DIET_LABELS = { none:'没有特别', vegetarian:'素食', low_carb:'不吃碳水', intermittent:'16+8间歇断食', other:'其他' };
+const SYMPTOM_LABELS = {
+  hot_flash:'潮热', night_sweat:'夜间出汗', poor_sleep:'睡眠变差',
+  mood_swing:'情绪波动', joint_pain:'关节不舒服', brain_fog:'脑雾记忆差'
+};
+
+function buildProfileSection() {
+  try {
+    const p = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+    if (!p || !p.name) return '';
+    const lines = [];
+    lines.push('【用户个人档案】');
+    if (p.name) lines.push(`称呼：${p.name}（回复时用这个名字称呼她）`);
+    if (p.age) lines.push(`年龄：${p.age}岁`);
+    if (p.height || p.weight) {
+      const h = p.height ? `${p.height}cm` : '--';
+      const w = p.weight ? `${p.weight}kg` : '--';
+      lines.push(`身高体重：${h} / ${w}`);
+    }
+    if (p.period_status) {
+      const label = PERIOD_LABELS[p.period_status] || p.period_status;
+      const extra = p.period_stopped_howlong ? `（停了${p.period_stopped_howlong}）` : '';
+      lines.push(`月经状态：${label}${extra}`);
+    }
+    if (Array.isArray(p.symptoms) && p.symptoms.length > 0 && !(p.symptoms.length === 1 && p.symptoms[0] === 'none')) {
+      const labels = p.symptoms.map(s => SYMPTOM_LABELS[s] || s).join('、');
+      lines.push(`当前症状：${labels}`);
+    }
+    if (p.exercise) {
+      const freq = EXERCISE_LABELS[p.exercise] || p.exercise;
+      const type = p.exercise_type ? `，${p.exercise_type}` : '';
+      lines.push(`运动习惯：${freq}${type}`);
+    }
+    if (p.diet) {
+      const dVal = typeof p.diet === 'object' ? p.diet.value : p.diet;
+      if (dVal && dVal !== 'none') {
+        const dLabel = DIET_LABELS[dVal] || dVal;
+        const note = p.diet_note ? `，${p.diet_note}` : '';
+        lines.push(`饮食限制：${dLabel}${note}`);
+      }
+    }
+    if (p.medication) lines.push(`用药/保健品：${p.medication}`);
+    if (lines.length === 1) return '';
+    return '\n\n' + lines.join('\n');
+  } catch { return ''; }
+}
+
+function getSystemPrompt() {
+  const profile = buildProfileSection();
+  return SYSTEM_PROMPT_BASE + profile;
+}
+
 let conversationHistory = [];
 
 async function askStacy(userMessage) {
@@ -64,7 +118,7 @@ async function askStacy(userMessage) {
       model: "deepseek-chat",
       max_tokens: 300,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: getSystemPrompt() },
         ...conversationHistory
       ]
     })
@@ -104,7 +158,7 @@ async function askStacyStream(userMessage, onSentence, onChar) {
       max_tokens: 300,
       stream: true,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: getSystemPrompt() },
         ...conversationHistory
       ]
     })
