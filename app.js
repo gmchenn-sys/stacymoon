@@ -153,6 +153,7 @@ let sttStream = null;        // MediaStream
 let sttAudioCtx = null;      // AudioContext
 let sttProcessor = null;     // ScriptProcessorNode
 let sttWs = null;            // WebSocket
+let sttAllWords = [];         // 收集所有 status 0/1 的 ws 文字
 let sttFrameSent = 0;        // 已发送音频帧数
 
 // 鉴权
@@ -191,6 +192,7 @@ async function startRecording() {
     const wsUrl = await buildSttWsUrl();
     console.log('[IAT] 鉴权完成, 连接 WS...');
     sttWs = new WebSocket(wsUrl);
+    sttAllWords = [];
     sttFrameSent = 0;
 
     sttWs.onopen = async () => {
@@ -262,12 +264,20 @@ async function startRecording() {
           console.warn('[IAT] 讯飞错误:', msg.code, msg.message);
           return;
         }
-        if (msg.data?.status === 2) {
-          // 最终结果：直接从 ws 数组拼接文字
+        // status 0/1: 收集 ws 文字
+        if (msg.data?.status !== 2) {
           const ws = msg.data?.result?.ws;
-          const finalText = ws ? ws.map(w => (w.cw?.[0]?.w || '')).join('') : '';
+          if (ws) {
+            for (const w of ws) {
+              const word = w.cw?.[0]?.w;
+              if (word) sttAllWords.push(word);
+            }
+          }
+        }
+        if (msg.data?.status === 2) {
+          const finalText = sttAllWords.join('').trim();
           console.log('[IAT] 最终识别文字:', finalText);
-          console.log('[IAT] 共发送', sttFrameSent, '帧');
+          console.log('[IAT] 共发送', sttFrameSent, '帧,', sttAllWords.length, '个词');
           cleanupStt();
 
           const cleaned = finalText.replace(/[。，！？、\s]+$/g, '').trim();
