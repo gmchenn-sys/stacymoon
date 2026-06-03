@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stacy Moon · 了解你</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0a0a0f;--accent:#F97316;--accent-glow:rgba(249,115,22,0.25);--text:#e4e4e7;
+      --text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:18px;
+    }
+    body{
+      font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+      max-width:420px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    /* ── 进度条 ───────────── */
+    .progress-bar-wrap{padding:20px 24px 0;flex-shrink:0}
+    .progress-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+    .progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width 0.4s ease}
+    .progress-label{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-muted);letter-spacing:0.5px}
+
+    /* ── 卡片区 ───────────── */
+    .card-container{flex:1;overflow:hidden;position:relative}
+    .card-track{display:flex;height:100%;transition:transform 0.45s cubic-bezier(.4,0,.2,1);will-change:transform}
+    .card{
+      flex:0 0 100%;height:100%;display:flex;flex-direction:column;justify-content:center;
+      padding:24px 28px 48px;overflow-y:auto;
+    }
+    .card-emoji{font-size:40px;margin-bottom:16px}
+    .card-question{font-size:1.25rem;font-weight:600;color:#fff;line-height:1.5;margin-bottom:24px}
+    .card-hint{font-size:0.8rem;color:var(--text-muted);margin-bottom:20px;line-height:1.5}
+
+    /* ── 输入 ─────────────── */
+    .text-input{
+      width:100%;height:52px;border-radius:14px;border:1px solid rgba(249,115,22,0.25);background:#1c1c24;
+      color:#fff;font-family:inherit;font-size:1.1rem;padding:0 16px;outline:none;transition:border-color 0.2s;
+    }
+    .text-input:focus{border-color:var(--accent)}
+    .text-input::placeholder{color:#444}
+    .input-pair{display:flex;gap:12px}
+    .input-pair .text-input{flex:1}
+    .input-unit{color:var(--text-muted);font-size:0.8rem;margin-top:4px;text-align:center}
+
+    /* ── 单选/多选 ────────── */
+    .option-list{display:flex;flex-direction:column;gap:10px}
+    .option{
+      display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:12px;
+      border:1px solid var(--border);background:var(--surface);cursor:pointer;
+      font-size:0.95rem;color:var(--text);transition:border-color 0.2s,background 0.2s;
+      -webkit-tap-highlight-color:transparent;user-select:none;
+    }
+    .option.selected{border-color:var(--accent);background:rgba(249,115,22,0.1)}
+    .option-radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--text-muted);flex-shrink:0;transition:border-color 0.2s,background 0.2s;display:flex;align-items:center;justify-content:center}
+    .option.selected .option-radio{border-color:var(--accent);background:var(--accent)}
+    .option.selected .option-radio::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
+    .option-check{width:20px;height:20px;border-radius:6px;border:2px solid var(--text-muted);flex-shrink:0;transition:border-color 0.2s,background 0.2s;display:flex;align-items:center;justify-content:center}
+    .option.selected .option-check{border-color:var(--accent);background:var(--accent)}
+    .option.selected .option-check::after{content:'✓';color:#fff;font-size:13px;font-weight:700;line-height:1}
+    .inline-input{margin-top:10px;width:100%;font-size:0.9rem}
+    .none-option{opacity:0.6}
+
+    /* ── 底部按钮 ─────────── */
+    .card-footer{flex-shrink:0;padding:16px 24px 28px;padding-bottom:max(28px,env(safe-area-inset-bottom))}
+    .btn-row{display:flex;gap:12px}
+    .btn{
+      flex:1;height:52px;border-radius:14px;border:none;font-family:inherit;font-size:1rem;font-weight:500;
+      cursor:pointer;transition:opacity 0.2s,transform 0.15s;user-select:none;
+    }
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-primary:active{opacity:0.85;transform:scale(0.97)}
+    .btn-secondary{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+    .btn-secondary:active{background:rgba(255,255,255,0.04)}
+
+    .fade-out{opacity:0;pointer-events:none;transition:opacity 0.3s}
+    .fade-in{opacity:1}
+  </style>
+</head>
+<body>
+
+<div class="progress-bar-wrap">
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:12.5%"></div></div>
+  <div class="progress-label"><span id="step-label">第 1 步</span><span>共 8 步</span></div>
+</div>
+
+<div class="card-container">
+  <div class="card-track" id="card-track"></div>
+</div>
+
+<div class="card-footer">
+  <div class="btn-row">
+    <button class="btn btn-secondary" id="btn-skip" style="display:none">跳过</button>
+    <button class="btn btn-primary" id="btn-next">下一步</button>
+  </div>
+</div>
+
+<script>
+// ── 配置 ─────────────────────────────────
+const questions = [
+  { key:'name', emoji:'👋', q:'你希望我怎么称呼你？', hint:'怎么叫你都行，妈妈、姐、阿姨…', type:'text', required:true },
+  { key:'age', emoji:'🕯️', q:'你今年多大岁数？', hint:'这对我理解你的身体很重要', type:'number', placeholder:'请输入年龄' },
+  { key:'heightWeight', emoji:'📏', q:'身高和体重大概是多少？', hint:'cm / kg，大概就行', type:'pair', fields:[
+    {key:'height',placeholder:'身高 cm'},{key:'weight',placeholder:'体重 kg'}
+  ]},
+  { key:'period_status', emoji:'🌸', q:'月经现在是什么状态？', type:'radio', options:[
+    {label:'还规律', value:'regular'},{label:'开始不规律', value:'irregular'},{label:'已停经', value:'stopped', sub:'period_stopped_howlong', subPlaceholder:'停了多久？例如：2年'}
+  ]},
+  { key:'symptoms', emoji:'🌡️', q:'有没有这些症状？', hint:'多选，没有就不用选', type:'checkbox', options:[
+    {label:'潮热', value:'hot_flash'},{label:'夜间出汗', value:'night_sweat'},{label:'睡眠变差', value:'poor_sleep'},
+    {label:'情绪波动', value:'mood_swing'},{label:'关节不舒服', value:'joint_pain'},{label:'脑雾记忆差', value:'brain_fog'},
+    {label:'以上都没有', value:'none'}
+  ]},
+  { key:'exercise', emoji:'🏃', q:'平时有运动习惯吗？', type:'radio', options:[
+    {label:'经常（每周3次以上）', value:'frequent'},{label:'偶尔（每周1-2次）', value:'occasional'},{label:'很少或没有', value:'rare'}
+  ], subKey:'exercise_type', subPlaceholder:'做什么运动？例如：散步、瑜伽、游泳'},
+  { key:'diet', emoji:'🥗', q:'饮食有什么限制或习惯吗？', type:'radio', options:[
+    {label:'没有特别', value:'none'},{label:'素食', value:'vegetarian'},{label:'不吃碳水', value:'low_carb'},{label:'16+8间歇断食', value:'intermittent'},{label:'其他', value:'other', sub:'diet_note', subPlaceholder:'请补充'}
+  ]},
+  { key:'medication', emoji:'💊', q:'在吃什么保健品或药物吗？', hint:'可以不填', type:'text', placeholder:'例如：钙片、维D、降压药…', optional:true }
+];
+
+// ── 状态 ─────────────────────────────────
+let currentStep = 0;
+const totalSteps = questions.length;
+const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
+
+// ── 渲染所有卡片 ─────────────────────────
+const track = document.getElementById('card-track');
+const frag = document.createDocumentFragment();
+questions.forEach((q, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = buildCardHTML(q, i);
+  frag.appendChild(card);
+});
+track.appendChild(frag);
+
+function buildCardHTML(q, idx) {
+  let body = '';
+  if (q.emoji) body += `<div class="card-emoji">${q.emoji}</div>`;
+  body += `<div class="card-question">${q.q}</div>`;
+  if (q.hint) body += `<div class="card-hint">${q.hint}</div>`;
+
+  if (q.type === 'text' || q.type === 'number') {
+    const ph = q.placeholder || (q.type === 'number' ? '请输入' : '');
+    body += `<input class="text-input value-input" data-key="${q.key}" type="${q.type === 'number' ? 'number' : 'text'}" placeholder="${ph}" inputmode="${q.type === 'number' ? 'numeric' : ''}">`;
+  }
+  else if (q.type === 'pair') {
+    body += `<div class="input-pair">`;
+    q.fields.forEach(f => {
+      body += `<input class="text-input value-input" data-key="${f.key}" type="number" placeholder="${f.placeholder}" inputmode="decimal">`;
+    });
+    body += `</div>`;
+  }
+  else if (q.type === 'radio') {
+    body += `<div class="option-list" data-radio-key="${q.key}">`;
+    q.options.forEach((o,i) => {
+      body += `<div class="option" data-value="${o.value}" data-idx="${idx}">`;
+      body += `<div class="option-radio"></div><span>${o.label}</span>`;
+      body += `</div>`;
+      if (o.sub) {
+        body += `<input class="text-input inline-input value-input" data-key="${o.sub}" placeholder="${q.subPlaceholder || o.subPlaceholder || ''}" style="display:none;margin-top:-6px">`;
+      }
+    });
+    body += `</div>`;
+    if (q.subKey) {
+      body += `<input class="text-input inline-input value-input" data-key="${q.subKey}" placeholder="${q.subPlaceholder || ''}" style="margin-top:12px">`;
+    }
+  }
+  else if (q.type === 'checkbox') {
+    body += `<div class="option-list" data-check-key="${q.key}">`;
+    q.options.forEach(o => {
+      body += `<div class="option" data-value="${o.value}" data-idx="${idx}">`;
+      body += `<div class="option-check"></div><span>${o.label}</span></div>`;
+    });
+    body += `</div>`;
+  }
+  return body;
+}
+
+// ── 导航 ─────────────────────────────────
+const btnNext = document.getElementById('btn-next');
+const btnSkip = document.getElementById('btn-skip');
+const progressFill = document.getElementById('progress-fill');
+const stepLabel = document.getElementById('step-label');
+
+function goToStep(n) {
+  currentStep = Math.max(0, Math.min(totalSteps - 1, n));
+  track.style.transform = `translateX(-${currentStep * 100}%)`;
+  progressFill.style.width = `${((currentStep + 1) / totalSteps) * 100}%`;
+  stepLabel.textContent = `第 ${currentStep + 1} 步`;
+
+  btnSkip.style.display = currentStep === 0 ? 'none' : '';
+  btnNext.textContent = currentStep === totalSteps - 1 ? '完成' : '下一步';
+
+  // 恢复已保存值
+  restoreValues(currentStep);
+}
+goToStep(0);
+
+// ── 选项点击 ─────────────────────────────
+document.addEventListener('click', e => {
+  const opt = e.target.closest('.option');
+  if (!opt) return;
+  const idx = parseInt(opt.dataset.idx);
+  const radioKey = opt.parentElement?.dataset?.radioKey;
+  const checkKey = opt.parentElement?.dataset?.checkKey;
+
+  if (radioKey) {
+    // 单选
+    const list = opt.parentElement;
+    list.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+    saveRadioSub(radioKey, questions[idx], opt);
+  }
+  if (checkKey) {
+    // 多选
+    opt.classList.toggle('selected');
+    if (opt.dataset.value === 'none' && opt.classList.contains('selected')) {
+      // 选「以上都没有」→ 清空其他
+      opt.parentElement.querySelectorAll('.option').forEach(o => {
+        if (o.dataset.value !== 'none') o.classList.remove('selected');
+      });
+    } else if (opt.classList.contains('selected')) {
+      // 选了其他项 → 取消「以上都没有」
+      const noneOpt = opt.parentElement.querySelector('.option[data-value="none"]');
+      if (noneOpt) noneOpt.classList.remove('selected');
+    }
+  }
+});
+
+function saveRadioSub(key, q, opt) {
+  const val = opt.dataset.value;
+  // 找关联的 sub 输入框
+  const subInput = opt.parentElement.querySelector(`input[data-key="${q.options.find(o=>o.value===val)?.sub || ''}"]`);
+  if (subInput) {
+    // 隐藏所有 sub 输入
+    opt.parentElement.querySelectorAll('.inline-input').forEach(el => el.style.display = 'none');
+    subInput.style.display = '';
+    subInput.focus();
+  } else {
+    opt.parentElement.querySelectorAll('.inline-input').forEach(el => el.style.display = 'none');
+  }
+}
+
+// ── 取值/回显 ────────────────────────────
+function collectValues(stepIdx) {
+  const q = questions[stepIdx];
+  const card = track.children[stepIdx];
+
+  if (q.type === 'text' || q.type === 'number') {
+    const inp = card.querySelector('.value-input');
+    return inp ? inp.value.trim() : '';
+  }
+  if (q.type === 'pair') {
+    const obj = {};
+    q.fields.forEach(f => {
+      const inp = card.querySelector(`.value-input[data-key="${f.key}"]`);
+      obj[f.key] = inp ? inp.value.trim() : '';
+    });
+    return obj;
+  }
+  if (q.type === 'radio') {
+    const selected = card.querySelector('.option.selected');
+    const val = selected ? selected.dataset.value : '';
+    // sub 输入
+    const result = { value: val };
+    const subInput = card.querySelector('.inline-input.value-input');
+    if (subInput) result[subInput.dataset.key] = subInput.value.trim();
+    if (q.subKey) {
+      const subInp = card.querySelector(`.value-input[data-key="${q.subKey}"]`);
+      if (subInp) result[q.subKey] = subInp.value.trim();
+    }
+    return result;
+  }
+  if (q.type === 'checkbox') {
+    const selected = [...card.querySelectorAll('.option.selected')].map(o => o.dataset.value);
+    return selected;
+  }
+  return '';
+}
+
+function restoreValues(stepIdx) {
+  const q = questions[stepIdx];
+  const card = track.children[stepIdx];
+  const saved = profile[q.key];
+
+  if (q.type === 'text' || q.type === 'number') {
+    const inp = card.querySelector('.value-input');
+    if (inp && saved !== undefined && saved !== null) inp.value = saved;
+  }
+  if (q.type === 'pair' && saved) {
+    q.fields.forEach(f => {
+      const inp = card.querySelector(`.value-input[data-key="${f.key}"]`);
+      if (inp && saved[f.key]) inp.value = saved[f.key];
+    });
+  }
+  if (q.type === 'radio' && saved) {
+    const val = typeof saved === 'object' ? saved.value : saved;
+    const opt = card.querySelector(`.option[data-value="${val}"]`);
+    if (opt) {
+      card.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      // 恢复 sub 输入
+      if (typeof saved === 'object') {
+        const subInput = card.querySelector('.inline-input.value-input');
+        if (subInput && saved[subInput.dataset.key]) {
+          subInput.value = saved[subInput.dataset.key];
+          subInput.style.display = '';
+        }
+      }
+    }
+  }
+  if (q.type === 'checkbox' && Array.isArray(saved)) {
+    card.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+    saved.forEach(v => {
+      const opt = card.querySelector(`.option[data-value="${v}"]`);
+      if (opt) opt.classList.add('selected');
+    });
+  }
+}
+
+// ── 按钮 ─────────────────────────────────
+btnNext.addEventListener('click', () => {
+  const val = collectValues(currentStep);
+  const q = questions[currentStep];
+
+  // 必填校验
+  if (q.required) {
+    let empty = false;
+    if (typeof val === 'string') empty = !val;
+    else if (q.type === 'radio') empty = !val.value && !val[q.subKey];
+    else if (q.type === 'pair') empty = !val[q.fields[0].key] && !val[q.fields[1].key];
+    if (empty) {
+      // 微震动提示
+      const card = track.children[currentStep];
+      card.style.transform = 'translateX(-4px)';
+      setTimeout(() => card.style.transform = '', 100);
+      setTimeout(() => card.style.transform = 'translateX(4px)', 200);
+      setTimeout(() => card.style.transform = '', 300);
+      return;
+    }
+  }
+
+  // 保存
+  if (q.type === 'pair') {
+    q.fields.forEach(f => { profile[f.key] = val[f.key]; });
+  } else if (q.type === 'radio') {
+    profile[q.key] = val.value || '';
+    if (val[q.subKey]) profile[q.subKey] = val[q.subKey];
+    // 处理 option 的 sub
+    if (typeof val === 'object') {
+      Object.keys(val).forEach(k => { if (k !== 'value' && val[k]) profile[k] = val[k]; });
+    }
+  } else if (q.type === 'checkbox') {
+    profile[q.key] = val;
+  } else {
+    profile[q.key] = val;
+  }
+  localStorage.setItem('stacy_profile', JSON.stringify(profile));
+
+  // 最后一页
+  if (currentStep >= totalSteps - 1) {
+    alert('建档完成！\n\n' + JSON.stringify(profile, null, 2));
+    return;
+  }
+
+  goToStep(currentStep + 1);
+});
+
+btnSkip.addEventListener('click', () => {
+  if (currentStep < totalSteps - 1) goToStep(currentStep + 1);
+});
+
+// ── 键盘回车 ─────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+    btnNext.click();
+  }
+});
+</script>
+</body>
+</html>
