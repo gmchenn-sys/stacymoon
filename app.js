@@ -153,7 +153,6 @@ let sttStream = null;        // MediaStream
 let sttAudioCtx = null;      // AudioContext
 let sttProcessor = null;     // ScriptProcessorNode
 let sttWs = null;            // WebSocket
-let sttWords = [];             // wpgs 词数组
 let sttFrameSent = 0;        // 已发送音频帧数
 
 // 鉴权
@@ -180,18 +179,6 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-// wpgs 模式词数组（按位置替换，避免重复拼接）
-
-function applyWpgsResult(result) {
-  if (!result?.ws || !result?.rg) return;
-  const rg = result.rg; // [start, end]
-  for (let i = 0; i < result.ws.length; i++) {
-    const idx = rg[0] + i;
-    const w = result.ws[i]?.cw?.[0]?.w || '';
-    sttWords[idx] = w;
-  }
-}
-
 // ── 开始录音（建 WS + 开麦）───────────────────
 
 async function startRecording() {
@@ -204,7 +191,6 @@ async function startRecording() {
     const wsUrl = await buildSttWsUrl();
     console.log('[IAT] 鉴权完成, 连接 WS...');
     sttWs = new WebSocket(wsUrl);
-    sttWords = [];
     sttFrameSent = 0;
 
     sttWs.onopen = async () => {
@@ -212,7 +198,7 @@ async function startRecording() {
       // 发送参数帧
       sttWs.send(JSON.stringify({
         common: { app_id: STT_CREDS.appId },
-        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 2000, dwa: 'wpgs' },
+        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 2000 },
         data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
       }));
       console.log('[IAT] 参数帧已发送');
@@ -276,13 +262,10 @@ async function startRecording() {
           console.warn('[IAT] 讯飞错误:', msg.code, msg.message);
           return;
         }
-        if (msg.data?.result) {
-          applyWpgsResult(msg.data.result);
-          const current = sttWords.join('');
-          console.log('[IAT] wpgs 更新, rg:', msg.data.result.rg, '→ 当前:', current);
-        }
         if (msg.data?.status === 2) {
-          const finalText = sttWords.join('');
+          // 最终结果：直接从 ws 数组拼接文字
+          const ws = msg.data?.result?.ws;
+          const finalText = ws ? ws.map(w => (w.cw?.[0]?.w || '')).join('') : '';
           console.log('[IAT] 最终识别文字:', finalText);
           console.log('[IAT] 共发送', sttFrameSent, '帧');
           cleanupStt();
@@ -375,7 +358,6 @@ function stopRecording() {
 
 function cleanupStt() {
   sttActive = false;
-  sttFinalText = '';
   sttFrameSent = 0;
   if (sttProcessor) { try { sttProcessor.disconnect(); } catch {} sttProcessor = null; }
   if (sttAudioCtx) { try { sttAudioCtx.close(); } catch {} sttAudioCtx = null; }
