@@ -93,29 +93,7 @@
 </div>
 
 <script>
-// ── 重定向检查 ─────────────────────────────
-(function() {
-  const inviteCode = localStorage.getItem('stacy_invite_code');
-  if (!inviteCode) { window.location.replace('index.html'); return; }
-
-  const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
-  if (!profile || !profile.name) { window.location.replace('onboarding.html'); return; }
-
-  // ── 问候 ──
-  const hour = new Date().getHours();
-  let timeGreeting = '早上好';
-  if (hour >= 12 && hour < 18) timeGreeting = '下午好';
-  if (hour >= 18) timeGreeting = '晚上好';
-  document.getElementById('greeting').innerHTML =
-    `${timeGreeting}，<span class="name">${escapeHTML(profile.name)}</span>`;
-
-  // ── 身体天气 ──
-  renderWeather(profile);
-  // ── 最近记录 ──
-  renderLogs();
-})();
-
-// ── 身体天气卡片 ────────────────────────────
+// ── 身体天气预设文案 ─────────────────────────
 const symptomMessages = {
   hot_flash:     { emoji:'🔥', msgs:['今天身体可能比较燥热，找个凉快的地方歇一歇','潮热天气，多喝点凉白开，穿宽松透气的衣服','今天体温波动大，随身带把小扇子会舒服很多'] },
   night_sweat:   { emoji:'💧', msgs:['昨晚出汗多的话记得补充水分','夜间出汗是身体在调节温度，不用太在意','睡前往床头放杯水，出汗后喝一口'] },
@@ -128,17 +106,17 @@ const fallbackWeather = { emoji:'🌤️', msgs:['今天也是新的一天，照
 
 function renderWeather(profile) {
   const symptoms = Array.isArray(profile.symptoms) ? profile.symptoms : [];
+  console.log('[WEATHER] symptoms:', symptoms);
   if (symptoms.length === 0 || (symptoms.length === 1 && symptoms[0] === 'none')) {
     setWeather(fallbackWeather);
     return;
   }
-
-  // 用日期做种子选有效症状
   const dateSeed = parseInt(new Date().toISOString().slice(0,10).replace(/-/g,''));
   const validSymptoms = symptoms.filter(s => s !== 'none');
   const pickIdx = dateSeed % validSymptoms.length;
   const picked = validSymptoms[pickIdx];
   const cfg = symptomMessages[picked] || fallbackWeather;
+  console.log('[WEATHER] picked:', picked, 'cfg:', !!cfg);
   setWeather(cfg);
 }
 
@@ -146,16 +124,14 @@ function setWeather(cfg) {
   document.getElementById('weather-emoji').textContent = cfg.emoji;
   const msgIdx = new Date().getDate() % cfg.msgs.length;
   document.getElementById('weather-msg').textContent = cfg.msgs[msgIdx];
+  console.log('[WEATHER] set:', cfg.emoji, cfg.msgs[msgIdx].slice(0,20));
 }
 
-// ── 最近对话记录 ────────────────────────────
 function renderLogs() {
   const listEl = document.getElementById('log-list');
   let logs = [];
   try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
-
   if (!logs.length) return;
-
   const recent = logs.slice(-3).reverse();
   listEl.innerHTML = '';
   recent.forEach(log => {
@@ -173,6 +149,26 @@ function escapeHTML(s) {
   div.textContent = s;
   return div.innerHTML;
 }
+
+// ── 重定向 + 初始化 ──────────────────────────
+(function() {
+  const inviteCode = localStorage.getItem('stacy_invite_code');
+  if (!inviteCode) { window.location.replace('index.html'); return; }
+
+  const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+  if (!profile || !profile.name) { window.location.replace('onboarding.html'); return; }
+  console.log('[HOME] profile:', JSON.stringify(profile).slice(0, 200));
+
+  const hour = new Date().getHours();
+  let timeGreeting = '早上好';
+  if (hour >= 12 && hour < 18) timeGreeting = '下午好';
+  if (hour >= 18) timeGreeting = '晚上好';
+  document.getElementById('greeting').innerHTML =
+    `${timeGreeting}，<span class="name">${escapeHTML(profile.name)}</span>`;
+
+  renderWeather(profile);
+  renderLogs();
+})();
 
 // ── 按钮 ────────────────────────────────────
 document.getElementById('cta-btn').addEventListener('click', () => {

@@ -334,33 +334,45 @@ function restoreValues(stepIdx) {
 
 // ── 按钮 ─────────────────────────────────
 btnNext.addEventListener('click', () => {
-  const val = collectValues(currentStep);
   const q = questions[currentStep];
 
   // 必填校验
-  if (q.required) {
-    let empty = false;
-    if (typeof val === 'string') empty = !val;
-    else if (q.type === 'radio') empty = !val.value && !val[q.subKey];
-    else if (q.type === 'pair') empty = !val[q.fields[0].key] && !val[q.fields[1].key];
-    if (empty) {
-      // 微震动提示
-      const card = track.children[currentStep];
-      card.style.transform = 'translateX(-4px)';
-      setTimeout(() => card.style.transform = '', 100);
-      setTimeout(() => card.style.transform = 'translateX(4px)', 200);
-      setTimeout(() => card.style.transform = '', 300);
-      return;
-    }
-  }
+  if (q.required && !validateRequired(q)) return;
 
-  // 保存
+  saveCurrentStep();
+
+  if (currentStep >= totalSteps - 1) {
+    window.location.href = 'home.html';
+    return;
+  }
+  goToStep(currentStep + 1);
+});
+
+function validateRequired(q) {
+  const val = collectValues(currentStep);
+  let empty = false;
+  if (typeof val === 'string') empty = !val;
+  else if (q.type === 'radio') empty = !val.value && !val[q.subKey];
+  else if (q.type === 'pair') empty = !val[q.fields[0].key] && !val[q.fields[1].key];
+  if (empty) {
+    const card = track.children[currentStep];
+    card.style.transform = 'translateX(-4px)';
+    setTimeout(() => card.style.transform = '', 100);
+    setTimeout(() => card.style.transform = 'translateX(4px)', 200);
+    setTimeout(() => card.style.transform = '', 300);
+    return false;
+  }
+  return true;
+}
+
+function saveCurrentStep() {
+  const val = collectValues(currentStep);
+  const q = questions[currentStep];
   if (q.type === 'pair') {
     q.fields.forEach(f => { profile[f.key] = val[f.key]; });
   } else if (q.type === 'radio') {
     profile[q.key] = val.value || '';
     if (val[q.subKey]) profile[q.subKey] = val[q.subKey];
-    // 处理 option 的 sub
     if (typeof val === 'object') {
       Object.keys(val).forEach(k => { if (k !== 'value' && val[k]) profile[k] = val[k]; });
     }
@@ -370,18 +382,13 @@ btnNext.addEventListener('click', () => {
     profile[q.key] = val;
   }
   localStorage.setItem('stacy_profile', JSON.stringify(profile));
-
-  // 最后一页
-  if (currentStep >= totalSteps - 1) {
-    window.location.href = 'home.html';
-    return;
-  }
-
-  goToStep(currentStep + 1);
-});
+}
 
 btnSkip.addEventListener('click', () => {
-  if (currentStep < totalSteps - 1) goToStep(currentStep + 1);
+  if (currentStep < totalSteps - 1) {
+    saveCurrentStep();
+    goToStep(currentStep + 1);
+  }
 });
 
 // ── 键盘回车 ─────────────────────────────
