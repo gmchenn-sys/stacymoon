@@ -120,7 +120,8 @@ const voiceBtn = document.getElementById('voice-btn');
 const voiceIcon = document.getElementById('voice-icon');
 
 let voiceActive = false;
-let isSpeaking = false;        // TTS 正在播放中，禁止 STT
+let isSpeaking = false;        // TTS 正在播放中
+let voiceMode = 0;             // 0=idle 1=recording 2=TTS/processing
 let currentAudio = null;
 let currentAudioSource = null;  // AudioContext BufferSource 引用，打断时 stop
 let currentTtsQueue = null;
@@ -283,7 +284,12 @@ async function startRecording() {
           const cleaned = finalText.replace(/[。，！？、\s]+$/g, '').trim();
           if (!cleaned) {
             console.log('[IAT] 去标点后为空，不发送给 AI');
-            if (voiceActive) appendBubble('ai', '没有听清，请再说一次 🌙');
+            if (voiceActive) {
+              appendBubble('ai', '没有听清，请再说一次 🌙');
+              // 自动回到录音状态
+              voiceMode = 1;
+              setTimeout(() => startRecording(), 300);
+            }
             return;
           }
           console.log('[IAT] 识别成功，发送给 AI:', cleaned);
@@ -572,7 +578,12 @@ async function handleSpeechInput(text) {
     ttsProcessing = false;
 
     isSpeaking = false;
-    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false');
+    console.log('[TTS] drainTtsQueue 完成, isSpeaking=false, 自动进入录音');
+    // TTS 播完 → 自动开始下一轮录音
+    if (voiceMode === 2) {
+      voiceMode = 1;
+      setTimeout(() => startRecording(), 300);
+    }
   }
 
   function enqueueTts(sentence) {
@@ -613,6 +624,7 @@ async function handleSpeechInput(text) {
 
 function stopVoice() {
   voiceActive = false;
+  voiceMode = 0;
   isSpeaking = false;
   cleanupStt();
   abortAllTts();
@@ -623,23 +635,17 @@ function stopVoice() {
 
 // ── 打断当前 TTS（手动点击）───────────────
 
-function interruptSpeaking() {
+function interruptTts() {
   console.log('[INTERRUPT] 手动打断 TTS');
   abortAllTts();
   currentTtsQueue = null;
   isSpeaking = false;
-  setTimeout(() => {
-    if (voiceActive) {
-      appendBubble('ai', '请说话 🌙');
-      startRecording();
-    }
-  }, 200);
 }
 
-// ── 麦克风按钮 ────────────────────────────────
+// ── 麦克风按钮（三态: idle→record→process→autoRecord→...→click during process→idle）─
 
 voiceBtn.addEventListener('click', async () => {
-  // iOS: 首次用户手势创建持久 AudioContext，后续所有 TTS 播放都通过它
+  // iOS AudioContext 解锁
   if (!ttsAudioCtx) {
     ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
     await ttsAudioCtx.resume();
@@ -654,23 +660,32 @@ voiceBtn.addEventListener('click', async () => {
     console.log('[AUDIO] AudioContext 已恢复, state:', ttsAudioCtx.state);
   }
 
-  // TTS 播放中点击 → 打断 TTS，开始录音
-  if (isSpeaking) {
-    interruptSpeaking();
-    appendBubble('ai', '好的，你说 🌙');
-    return;
-  }
+  console.log('[VOICE] 点击, voiceMode:', voiceMode, 'isSpeaking:', isSpeaking, 'sttActive:', sttActive);
 
-  // 正在录音中点击 → 停止录音并自动识别
-  if (sttActive) {
-    stopRecording();
-    appendBubble('ai', '好的，让我想想 🌙');
-    return;
-  }
+  switch (voiceMode) {
+    case 0:  // idle → 开始录音
+      voiceActive = true;
+      voiceMode = 1;
+      isSpeaking = false;
+      appendBubble('ai', '请说话 🌙');
+      startRecording();
+      break;
 
-  // 空闲或通话中但没录音 → 开始录音
-  voiceActive = true;
-  isSpeaking = false;
-  appendBubble('ai', '请说话 🌙');
-  startRecording();
+    case 1:  // 录音中 → 停止，发给 AI
+      if (sttActive) stopRecording();
+      voiceMode = 2;
+      appendBubble('ai', '好的，让我想想 🌙');
+      break;
+
+    case 2:  // TTS 播放/AI 处理中 → 关闭语音
+      voiceActive = false;
+      voiceMode = 0;
+      isSpeaking = false;
+      interruptTts();
+      cleanupStt();
+      voiceBtn.classList.remove('voice-active', 'voice-speaking');
+      setMicIcon('mic');
+      appendBubble('ai', '语音已结束 🌙');
+      break;
+  }
 });
