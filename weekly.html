@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stacy Moon · 本周回顾</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0a0a0f;--accent:#F97316;--accent-glow:rgba(249,115,22,0.25);--text:#e4e4e7;
+      --text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:18px;
+    }
+    body{
+      font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+      max-width:420px;margin:0 auto;min-height:100dvh;
+      -webkit-font-smoothing:antialiased;padding-bottom:40px;
+    }
+
+    /* ── 顶部 ──────────── */
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;padding:20px 24px;
+      border-bottom:1px solid var(--border);
+    }
+    .back-btn{
+      background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;
+      padding:4px 8px;border-radius:8px;font-family:inherit;
+    }
+    .topbar-title{font-size:1rem;font-weight:600;color:#fff}
+    .topbar-date{font-size:0.75rem;color:var(--text-muted)}
+
+    /* ── 区块 ──────────── */
+    .section{margin:24px 20px}
+    .section-title{font-size:0.72rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+    .section-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px}
+
+    /* ── 概览数字 ─────── */
+    .overview{display:flex;gap:12px;margin:24px 20px}
+    .stat-card{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 12px;text-align:center}
+    .stat-num{font-size:1.8rem;font-weight:700;color:var(--accent);line-height:1.2}
+    .stat-label{font-size:0.7rem;color:var(--text-muted);margin-top:4px}
+
+    /* ── 心情周历 ─────── */
+    .mood-strip{display:flex;gap:8px;justify-content:space-between}
+    .mood-day{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+    .mood-day .emoji{font-size:24px}
+    .mood-day .day-label{font-size:0.65rem;color:var(--text-muted)}
+    .mood-empty{text-align:center;color:var(--text-muted);font-size:0.8rem;padding:12px}
+
+    /* ── 睡眠柱状 ─────── */
+    .sleep-bars{display:flex;gap:8px;align-items:flex-end;justify-content:space-between;height:60px}
+    .sleep-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+    .sleep-bar{width:100%;max-width:36px;border-radius:6px 6px 0 0;background:rgba(249,115,22,0.4);transition:height 0.5s ease}
+    .sleep-bar-label{font-size:0.6rem;color:var(--text-muted)}
+
+    /* ── 症状标签 ─────── */
+    .symptom-cloud{display:flex;flex-wrap:wrap;gap:8px}
+    .symptom-tag{padding:6px 14px;border-radius:20px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);font-size:0.78rem;color:var(--accent)}
+    .symptom-tag .count{opacity:0.6;margin-left:4px}
+
+    /* ── 对话话题 ─────── */
+    .topic-list{display:flex;flex-direction:column;gap:8px}
+    .topic-item{font-size:0.82rem;color:var(--text);padding:6px 0;border-bottom:1px solid var(--border);line-height:1.5}
+    .topic-item:last-child{border-bottom:none}
+
+    /* ── 总结 ─────────── */
+    .summary-text{font-size:0.9rem;color:var(--text);line-height:1.7}
+
+    /* ── 推送按钮 ─────── */
+    .push-wrap{margin:24px 20px 40px}
+    .push-btn{
+      width:100%;height:52px;border-radius:14px;border:none;font-family:inherit;font-size:0.95rem;font-weight:500;
+      cursor:pointer;transition:opacity 0.2s,transform 0.15s;
+    }
+    .push-btn.ready{background:linear-gradient(135deg,#8B5CF6,#7C3AED);color:#fff;box-shadow:0 4px 20px rgba(139,92,246,0.3)}
+    .push-btn.ready:active{opacity:0.85;transform:scale(0.97)}
+    .push-btn.sent{background:rgba(34,197,94,0.15);color:#22c55e;cursor:default}
+    .push-btn:disabled{opacity:0.4;cursor:default}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back-btn" onclick="history.back()">← 返回</button>
+  <div style="text-align:center">
+    <div class="topbar-title">📊 本周回顾</div>
+    <div class="topbar-date" id="week-range"></div>
+  </div>
+  <div style="width:48px"></div>
+</div>
+
+<div class="overview" id="overview"></div>
+
+<div class="section">
+  <div class="section-title">😊 心情周历</div>
+  <div class="section-card"><div id="mood-strip"></div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">💤 睡眠评分</div>
+  <div class="section-card"><div id="sleep-bars"></div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🏷️ 症状频率</div>
+  <div class="section-card"><div id="symptom-cloud"></div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">💬 对话片段</div>
+  <div class="section-card"><div id="topic-list"></div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">✨ Stacy 说</div>
+  <div class="section-card"><div class="summary-text" id="summary-text">加载中…</div></div>
+</div>
+
+<div class="push-wrap">
+  <button class="push-btn ready" id="push-btn">📤 推送周报到飞书（女儿会看到）</button>
+</div>
+
+<script src="supabase.js"></script>
+<script>
+// ── 工具 ─────────────────────────────────
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function getWeekKey(d) {
+  const mon = getMonday(d);
+  return mon.toISOString().slice(0,10);
+}
+
+function getDateLabel(d) {
+  const days = ['日','一','二','三','四','五','六'];
+  return days[d.getDay()];
+}
+
+const to = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+// ── 数据读取 ─────────────────────────────
+function loadWeekLogs() {
+  const all = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+  const today = new Date();
+  const mon = getMonday(today);
+  const sun = new Date(mon);
+  sun.setDate(sun.getDate() + 6);
+  return all.filter(l => { const d = new Date(l.date); return d >= mon && d <= sun; });
+}
+
+function loadWeekChats() {
+  const all = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
+  const today = new Date();
+  const mon = getMonday(today);
+  mon.setHours(0,0,0,0);
+  return all.filter(l => {
+    if (l.created_at) return new Date(l.created_at) >= mon;
+    return false;
+  });
+}
+
+// ── 渲染 ─────────────────────────────────
+(function init() {
+  const logs = loadWeekLogs();
+  const chats = loadWeekChats();
+  const mon = getMonday(new Date());
+  const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+
+  document.getElementById('week-range').textContent =
+    `${mon.getMonth()+1}/${mon.getDate()} - ${sun.getMonth()+1}/${sun.getDate()}`;
+
+  // 概览数字
+  const daysWithData = logs.length;
+  const avgSleep = logs.filter(l=>l.sleep_score).reduce((s,l)=>s+l.sleep_score,0) / (daysWithData||1);
+  const symptomDays = logs.filter(l => l.symptoms && l.symptoms.length > 0).length;
+  document.getElementById('overview').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${daysWithData}</div><div class="stat-label">打卡天数</div></div>
+    <div class="stat-card"><div class="stat-num">${avgSleep.toFixed(1)}</div><div class="stat-label">平均睡眠评分</div></div>
+    <div class="stat-card"><div class="stat-num">${chats.length}</div><div class="stat-label">对话次数</div></div>
+  `;
+
+  // 心情周历
+  const moodStrip = document.getElementById('mood-strip');
+  if (logs.length === 0) {
+    moodStrip.innerHTML = '<div class="mood-empty">这周还没有打卡记录</div>';
+  } else {
+    const moodMap = {};
+    logs.forEach(l => { if (l.mood) moodMap[l.date] = l.mood; });
+    let html = '<div class="mood-strip">';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(d.getDate()+i);
+      const key = d.toISOString().slice(0,10);
+      const emoji = moodMap[key] || '·';
+      html += `<div class="mood-day"><span class="emoji">${emoji}</span><span class="day-label">${getDateLabel(d)}</span></div>`;
+    }
+    html += '</div>';
+    moodStrip.innerHTML = html;
+  }
+
+  // 睡眠柱状
+  const sleepBars = document.getElementById('sleep-bars');
+  if (logs.filter(l=>l.sleep_score).length === 0) {
+    sleepBars.innerHTML = '<div class="mood-empty">还没有睡眠记录</div>';
+  } else {
+    const sleepMap = {};
+    logs.forEach(l => { if (l.sleep_score) sleepMap[l.date] = l.sleep_score; });
+    let html = '<div class="sleep-bars">';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(mon); d.setDate(d.getDate()+i);
+      const key = d.toISOString().slice(0,10);
+      const score = sleepMap[key] || 0;
+      html += `<div class="sleep-bar-wrap"><div class="sleep-bar" style="height:${score*12}px"></div><div class="sleep-bar-label">${score||'·'}</div></div>`;
+    }
+    html += '</div>';
+    sleepBars.innerHTML = html;
+  }
+
+  // 症状频率
+  const symptomCloud = document.getElementById('symptom-cloud');
+  const symptomCount = {};
+  const LABELS = { hot_flash:'潮热', night_sweat:'出汗', poor_sleep:'睡不好', mood_swing:'情绪波动', joint_pain:'关节疼', brain_fog:'脑雾' };
+  logs.forEach(l => {
+    if (l.symptoms) l.symptoms.forEach(s => {
+      if (s !== 'none') symptomCount[s] = (symptomCount[s]||0)+1;
+    });
+  });
+  if (Object.keys(symptomCount).length === 0) {
+    symptomCloud.innerHTML = '<div class="mood-empty">这周没有记录症状</div>';
+  } else {
+    let html = '<div class="symptom-cloud">';
+    Object.entries(symptomCount).sort((a,b)=>b[1]-a[1]).forEach(([key,count]) => {
+      html += `<span class="symptom-tag">${LABELS[key]||key}<span class="count">${count}次</span></span>`;
+    });
+    html += '</div>';
+    symptomCloud.innerHTML = html;
+  }
+
+  // 对话片段
+  const topicList = document.getElementById('topic-list');
+  const weekChats = chats.filter(c => {
+    if (c.created_at) return new Date(c.created_at) >= mon;
+    return false;
+  });
+  if (weekChats.length === 0) {
+    topicList.innerHTML = '<div class="mood-empty">这周还没有对话</div>';
+  } else {
+    let html = '<div class="topic-list">';
+    weekChats.slice(-5).reverse().forEach(c => {
+      const t = c.created_at ? new Date(c.created_at).toLocaleTimeString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      const msg = (c.userMessage || c.user_message || '').slice(0,30);
+      html += `<div class="topic-item"><span style="color:var(--text-muted);font-size:0.7rem">${t}</span> ${to(msg)}</div>`;
+    });
+    html += '</div>';
+    topicList.innerHTML = html;
+  }
+
+  // ── AI 总结 ──
+  generateSummary(logs, weekChats, symptomCount, daysWithData);
+})();
+
+// ── AI 周报总结 ────────────────────────────
+async function generateSummary(logs, chats, symptomCount, daysWithData) {
+  const el = document.getElementById('summary-text');
+  if (daysWithData === 0) {
+    el.textContent = '这周还没有打卡记录，记录几天后 Stacy 会帮你总结。';
+    return;
+  }
+  try {
+    const moodScores = logs.filter(l=>l.mood).map(l => {
+      const map = {'😊':4,'😐':3,'😤':2,'😢':1,'😴':2};
+      return { date:l.date, score:map[l.mood]||3 };
+    });
+    const trend = moodScores.length >= 2 && moodScores[moodScores.length-1].score > moodScores[0].score ? '上升' : '有波动';
+    const topSymptoms = Object.entries(symptomCount).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`${({hot_flash:'潮热',night_sweat:'出汗',poor_sleep:'睡不好',mood_swing:'情绪波动',joint_pain:'关节疼',brain_fog:'脑雾'}[k]||k)}(${v}次)`).join('、');
+    const prompt = `用户本周打卡${daysWithData}天，对话${chats.length}次。心情趋势：${trend}。最常出现的症状：${topSymptoms||'无明显症状'}。请用2-3句话给这位围经期用户一个温柔、鼓励的周报小结。称呼她"你"。直接说内容，不要"这周..."开头。50字以内。`;
+    const key = window.DEEPSEEK_API_KEY || 'sk-4c483cb60ccd4bc58ec5f2846c774063';
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({model:'deepseek-chat',max_tokens:120,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || '';
+    el.textContent = reply || '数据积累中，多记录几天后 Stacy 会更了解你。';
+  } catch(e) {
+    el.textContent = '心情有起伏是正常的，记录下来的每一天都在帮你更好地了解自己的身体。';
+  }
+}
+
+// ── 飞书推送 ──────────────────────────────
+document.getElementById('push-btn').addEventListener('click', async function() {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = '发送中…';
+
+  try {
+    const code = localStorage.getItem('stacy_invite_code');
+    if (!code) throw new Error('无邀请码');
+
+    const res = await fetch(`${window.SUPABASE_URL}/rest/v1/invite_codes?code=eq.${encodeURIComponent(code)}&select=feishu_webhook`, {
+      headers: {'apikey':window.SUPABASE_KEY,'Authorization':'Bearer '+window.SUPABASE_KEY}
+    });
+    const webhookData = await res.json();
+    if (!webhookData.length) throw new Error('邀请码无效');
+    const webhook = webhookData[0].feishu_webhook;
+
+    const logs = loadWeekLogs();
+    const chats = loadWeekChats();
+    const mon = getMonday(new Date());
+    const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+    const range = `${mon.getMonth()+1}/${mon.getDate()}-${sun.getMonth()+1}/${sun.getDate()}`;
+
+    const symptomText = Object.entries(
+      (()=>{const m={};logs.forEach(l=>{if(l.symptoms)l.symptoms.forEach(s=>{if(s!=='none')m[s]=(m[s]||0)+1})});return m;})()
+    ).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${({hot_flash:'潮热',night_sweat:'出汗',poor_sleep:'睡不好',mood_swing:'情绪波动',joint_pain:'关节疼',brain_fog:'脑雾'}[k]||k)}${v}次`).join('、') || '无明显症状';
+
+    const profile = JSON.parse(localStorage.getItem('stacy_profile')||'{}');
+    const name = profile.name || '妈妈';
+
+    const summaryEl = document.getElementById('summary-text');
+    const summary = summaryEl.textContent || '';
+
+    await fetch(webhook, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        msg_type:'interactive',
+        card:{
+          header:{title:{tag:'plain_text',content:`🌙 ${name}的本周报告`},template:'purple'},
+          elements:[
+            {tag:'div',text:{tag:'lark_md',content:`**${range}**  ·  打卡${logs.length}天  ·  对话${chats.length}次`}},
+            {tag:'hr'},
+            {tag:'div',text:{tag:'lark_md',content:`**症状：** ${symptomText}`}},
+            {tag:'div',text:{tag:'lark_md',content:`**Stacy 说：** ${summary}`}},
+            {tag:'note',elements:[{tag:'plain_text',content:'Stacy Moon · 每周自动生成 🌙'}]}
+          ]
+        }
+      })
+    });
+
+    btn.textContent = '✅ 已推送到飞书';
+    btn.className = 'push-btn sent';
+  } catch(e) {
+    console.error('推送失败:', e);
+    btn.textContent = '推送失败，请重试';
+    btn.className = 'push-btn ready';
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

@@ -116,6 +116,22 @@
     .task-done-btn.done{border-color:rgba(34,197,94,0.5);background:rgba(34,197,94,0.12)}
     .task-done-btn.done::before{content:'✅ '}
 
+    /* ── 周报入口卡片 ─────── */
+    .weekly-banner{
+      margin:0 20px 24px;background:linear-gradient(135deg,rgba(139,92,246,0.08),rgba(99,102,241,0.05));
+      border:1px solid rgba(139,92,246,0.12);border-radius:var(--radius);padding:16px 20px;
+      display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+      transition:border-color 0.2s;
+    }
+    .weekly-banner:hover{border-color:rgba(139,92,246,0.3)}
+    .weekly-banner:active{background:rgba(139,92,246,0.06)}
+    .weekly-left{display:flex;align-items:center;gap:10px}
+    .weekly-icon{font-size:24px}
+    .weekly-info{line-height:1.4}
+    .weekly-label{font-size:0.75rem;color:#a78bfa;letter-spacing:1px;font-weight:500}
+    .weekly-preview{font-size:0.82rem;color:var(--text-muted)}
+    .weekly-arrow{font-size:18px;color:var(--text-muted)}
+
     /* ── CTA 按钮 ───────────── */
     .cta-wrap{padding:0 20px;margin-bottom:24px}
     .cta-btn{
@@ -165,6 +181,17 @@
   <button class="cta-btn" id="cta-btn">🌙 和 Stacy 说说话</button>
 </div>
 
+<a class="weekly-banner" id="weekly-banner" href="weekly.html" style="text-decoration:none;color:inherit;display:none">
+  <div class="weekly-left">
+    <span class="weekly-icon">📊</span>
+    <div class="weekly-info">
+      <div class="weekly-label">本周回顾</div>
+      <div class="weekly-preview" id="weekly-preview"></div>
+    </div>
+  </div>
+  <span class="weekly-arrow">→</span>
+</a>
+
 <div class="recent-section">
   <div class="recent-title">最近对话</div>
   <div id="log-list">
@@ -172,6 +199,7 @@
   </div>
 </div>
 
+<script src="supabase.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // ── 打卡配置 ────────────────────────────────
@@ -229,6 +257,33 @@ function saveTodayLog(data) {
   if (idx >= 0) logs[idx] = data;
   else logs.push(data);
   saveAllLogs(logs);
+
+  // 同步到 Supabase，女儿端可读
+  syncToSupabase(data);
+}
+
+async function syncToSupabase(data) {
+  try {
+    const code = localStorage.getItem('stacy_invite_code');
+    if (!code) return;
+    await fetch(`${window.SUPABASE_URL}/rest/v1/daily_logs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': window.SUPABASE_KEY,
+        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        invite_code: code,
+        date: data.date,
+        mood: data.mood || '',
+        sleep_score: data.sleep_score || 0,
+        symptoms: data.symptoms || [],
+        note: data.note || ''
+      })
+    });
+  } catch (e) { console.warn('Supabase 同步失败:', e); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -518,6 +573,22 @@ function escapeHTML(s) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// ── 周报入口 ────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function renderWeeklyBanner() {
+  const banner = document.getElementById('weekly-banner');
+  const preview = document.getElementById('weekly-preview');
+  const allLogs = loadAllLogs();
+  if (allLogs.length < 2) { banner.style.display = 'none'; return; }
+  const days = allLogs.length;
+  const logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
+  const chats = logs.length;
+  banner.style.display = '';
+  preview.textContent = `打卡${days}天 · 对话${chats}次`;
+}
+
+// ═══════════════════════════════════════════════════════════
 // ── 初始化 ──────────────────────────────────
 // ═══════════════════════════════════════════════════════════
 
@@ -537,6 +608,7 @@ function escapeHTML(s) {
   renderCheckin();
   renderTask();
   renderLogs();
+  renderWeeklyBanner();
 })();
 
 // ── 按钮 ────────────────────────────────────
