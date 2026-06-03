@@ -203,7 +203,7 @@ async function startRecording() {
         business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin', vad_eos: 2000 },
         data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
       }));
-      console.log('[IAT] 参数帧已发送');
+      console.log('[IAT] 参数帧已发送, business: language=zh_cn domain=iat accent=mandarin vad_eos=2000');
 
       // 2) WS 就绪后再开麦克风
       try {
@@ -257,9 +257,9 @@ async function startRecording() {
     };
 
     sttWs.onmessage = (e) => {
-      console.log('[IAT] 收到消息', e.data.slice(0, 500));
       try {
         const msg = JSON.parse(e.data);
+        console.log('[IAT] 原始消息 status:', msg.data?.status, 'code:', msg.code, 'ws:', JSON.stringify(msg.data?.result?.ws));
         if (msg.code !== 0) {
           console.warn('[IAT] 讯飞错误:', msg.code, msg.message);
           return;
@@ -654,7 +654,7 @@ voiceBtn.addEventListener('click', async () => {
     console.log('[AUDIO] AudioContext 已恢复, state:', ttsAudioCtx.state);
   }
 
-  // TTS 播放中点击 → 打断
+  // TTS 播放中点击 → 打断 TTS，开始录音
   if (isSpeaking) {
     interruptSpeaking();
     appendBubble('ai', '好的，你说 🌙');
@@ -668,14 +668,7 @@ voiceBtn.addEventListener('click', async () => {
     return;
   }
 
-  // 通话中但没在录音 → 挂断
-  if (voiceActive) {
-    stopVoice();
-    appendBubble('ai', '语音已结束 🌙');
-    return;
-  }
-
-  // 空闲 → 开启通话 + 开始录音
+  // 空闲或通话中但没录音 → 开始录音
   voiceActive = true;
   isSpeaking = false;
   appendBubble('ai', '请说话 🌙');
