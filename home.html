@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Stacy Moon</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0a0a0f;--accent:#F97316;--accent-glow:rgba(249,115,22,0.25);--text:#e4e4e7;
+      --text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:18px;
+    }
+    body{
+      font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+      max-width:420px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    /* ── 顶部栏 ─────────────── */
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:20px 24px;flex-shrink:0;
+    }
+    .greeting{font-size:1.1rem;color:#fff;font-weight:500}
+    .greeting .name{color:var(--accent);font-weight:700}
+    .profile-btn{
+      width:40px;height:40px;border-radius:12px;border:1px solid var(--border);
+      background:var(--surface);color:var(--text-muted);display:flex;align-items:center;
+      justify-content:center;cursor:pointer;font-size:18px;transition:border-color 0.2s,color 0.2s;
+    }
+    .profile-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+    /* ── 天气卡片 ───────────── */
+    .weather-card{
+      margin:0 20px 24px;background:linear-gradient(135deg,rgba(249,115,22,0.12),rgba(139,92,246,0.08));
+      border:1px solid rgba(249,115,22,0.15);border-radius:var(--radius);padding:24px 20px;
+    }
+    .weather-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .weather-emoji{font-size:32px}
+    .weather-label{font-size:0.78rem;color:var(--text-muted);letter-spacing:1px}
+    .weather-msg{font-size:1rem;color:#fff;line-height:1.6}
+
+    /* ── CTA 按钮 ───────────── */
+    .cta-wrap{padding:0 20px;margin-bottom:32px}
+    .cta-btn{
+      width:100%;height:68px;border-radius:20px;border:none;
+      background:linear-gradient(135deg,var(--accent),#ea580c);
+      color:#fff;font-family:inherit;font-size:1.15rem;font-weight:600;
+      cursor:pointer;transition:opacity 0.2s,transform 0.15s;
+      box-shadow:0 8px 32px rgba(249,115,22,0.2);
+    }
+    .cta-btn:active{opacity:0.85;transform:scale(0.97)}
+
+    /* ── 最近记录 ───────────── */
+    .recent-section{padding:0 20px 40px;flex:1}
+    .recent-title{font-size:0.75rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:12px;text-transform:uppercase}
+    .log-item{
+      padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+      margin-bottom:10px;
+    }
+    .log-time{font-size:0.7rem;color:var(--text-muted);margin-bottom:6px}
+    .log-preview{font-size:0.85rem;color:var(--text);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .log-empty{text-align:center;padding:40px 20px;color:var(--text-muted);font-size:0.85rem;line-height:1.8}
+
+    .subtitle{font-size:0.8rem;color:var(--text-muted);margin-top:4px;line-height:1.5}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="greeting" id="greeting">你好</div>
+  <button class="profile-btn" id="profile-btn" title="我的档案">📋</button>
+</div>
+
+<div class="weather-card" id="weather-card">
+  <div class="weather-top">
+    <span class="weather-emoji" id="weather-emoji">🌤️</span>
+    <span class="weather-label">今日身体天气</span>
+  </div>
+  <div class="weather-msg" id="weather-msg"></div>
+</div>
+
+<div class="cta-wrap">
+  <button class="cta-btn" id="cta-btn">🌙 和 Stacy 说说话</button>
+</div>
+
+<div class="recent-section">
+  <div class="recent-title">最近对话</div>
+  <div id="log-list">
+    <div class="log-empty">还没有对话记录<br>点上方按钮跟 Stacy 聊两句吧</div>
+  </div>
+</div>
+
+<script>
+// ── 重定向检查 ─────────────────────────────
+(function() {
+  const inviteCode = localStorage.getItem('stacy_invite_code');
+  if (!inviteCode) { window.location.replace('index.html'); return; }
+
+  const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+  if (!profile || !profile.name) { window.location.replace('onboarding.html'); return; }
+
+  // ── 问候 ──
+  const hour = new Date().getHours();
+  let timeGreeting = '早上好';
+  if (hour >= 12 && hour < 18) timeGreeting = '下午好';
+  if (hour >= 18) timeGreeting = '晚上好';
+  document.getElementById('greeting').innerHTML =
+    `${timeGreeting}，<span class="name">${escapeHTML(profile.name)}</span>`;
+
+  // ── 身体天气 ──
+  renderWeather(profile);
+  // ── 最近记录 ──
+  renderLogs();
+})();
+
+// ── 身体天气卡片 ────────────────────────────
+const symptomMessages = {
+  hot_flash:     { emoji:'🔥', msgs:['今天身体可能比较燥热，找个凉快的地方歇一歇','潮热天气，多喝点凉白开，穿宽松透气的衣服','今天体温波动大，随身带把小扇子会舒服很多'] },
+  night_sweat:   { emoji:'💧', msgs:['昨晚出汗多的话记得补充水分','夜间出汗是身体在调节温度，不用太在意','睡前往床头放杯水，出汗后喝一口'] },
+  poor_sleep:    { emoji:'😴', msgs:['昨晚睡得不太好？今天节奏放慢一点没关系','睡眠浅的日子就当是身体在提醒你多休息','今天试试睡前泡个脚，11点前上床'] },
+  mood_swing:    { emoji:'🎢', msgs:['情绪像坐过山车是激素的事，不是你的问题','今天允许自己情绪自由来去，不用压抑','心里有什么都可以跟 Stacy 说，不用一个人扛'] },
+  joint_pain:    { emoji:'🦴', msgs:['关节不太舒服的时候，温柔活动比不动好','今天做点轻缓的拉伸，关节需要运动润滑','关节在提醒你：该起来走动一下了'] },
+  brain_fog:     { emoji:'🌫️', msgs:['脑雾的日子把要紧事先做，不重要的事放一放','今天记不住东西不是你的错，是激素在捣乱','脑子不太清楚的时候出门散个步比硬扛有用'] },
+};
+const fallbackWeather = { emoji:'🌤️', msgs:['今天也是新的一天，照顾好自己','没什么特别提醒，保持好心情就是最好的药','规律生活就是最好的保养品，你今天做到了吗？'] };
+
+function renderWeather(profile) {
+  const symptoms = Array.isArray(profile.symptoms) ? profile.symptoms : [];
+  if (symptoms.length === 0 || (symptoms.length === 1 && symptoms[0] === 'none')) {
+    setWeather(fallbackWeather);
+    return;
+  }
+
+  // 用日期做种子选有效症状
+  const dateSeed = parseInt(new Date().toISOString().slice(0,10).replace(/-/g,''));
+  const validSymptoms = symptoms.filter(s => s !== 'none');
+  const pickIdx = dateSeed % validSymptoms.length;
+  const picked = validSymptoms[pickIdx];
+  const cfg = symptomMessages[picked] || fallbackWeather;
+  setWeather(cfg);
+}
+
+function setWeather(cfg) {
+  document.getElementById('weather-emoji').textContent = cfg.emoji;
+  const msgIdx = new Date().getDate() % cfg.msgs.length;
+  document.getElementById('weather-msg').textContent = cfg.msgs[msgIdx];
+}
+
+// ── 最近对话记录 ────────────────────────────
+function renderLogs() {
+  const listEl = document.getElementById('log-list');
+  let logs = [];
+  try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
+
+  if (!logs.length) return;
+
+  const recent = logs.slice(-3).reverse();
+  listEl.innerHTML = '';
+  recent.forEach(log => {
+    const time = log.time || (log.created_at ? new Date(log.created_at).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '');
+    const msg = log.userMessage || log.user_message || '';
+    const item = document.createElement('div');
+    item.className = 'log-item';
+    item.innerHTML = `<div class="log-time">${escapeHTML(time)}</div><div class="log-preview">${escapeHTML(msg.slice(0,20))}${msg.length > 20 ? '…' : ''}</div>`;
+    listEl.appendChild(item);
+  });
+}
+
+function escapeHTML(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ── 按钮 ────────────────────────────────────
+document.getElementById('cta-btn').addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
+document.getElementById('profile-btn').addEventListener('click', () => {
+  alert('档案功能即将上线');
+});
+</script>
+</body>
+</html>

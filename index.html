@@ -129,8 +129,14 @@
     const btn = document.getElementById('invite-btn');
     const err = document.getElementById('invite-err');
 
-    // 已有邀请码则不弹窗
+    // 已有邀请码 → 没建档的先去建档
     if (localStorage.getItem('stacy_invite_code')) {
+      const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+      if (!profile || !profile.name) {
+        window.location.replace('onboarding.html');
+        return;
+      }
+      // 有档案 → 正常使用
       overlay.style.display = 'none';
       return;
     }
@@ -157,6 +163,13 @@
         if (data.length) {
           localStorage.setItem('stacy_invite_code', code);
           overlay.style.display = 'none';
+          // 检查是否需要建档
+          const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+          if (!profile || !profile.name) {
+            window.location.replace('onboarding.html');
+          } else {
+            window.location.replace('home.html');
+          }
         } else {
           err.textContent = '邀请码无效，请核对后再试';
         }

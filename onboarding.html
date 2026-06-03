@@ -98,6 +98,15 @@
 </div>
 
 <script>
+// ── 重定向检查 ─────────────────────────────
+(function(){
+  const inviteCode = localStorage.getItem('stacy_invite_code');
+  if (!inviteCode) { window.location.replace('index.html'); return; }
+  const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+  // 已有完整档案 → 跳过建档，直接去首页
+  if (profile && profile.name) { window.location.replace('home.html'); return; }
+})();
+
 // ── 配置 ─────────────────────────────────
 const questions = [
   { key:'name', emoji:'👋', q:'你希望我怎么称呼你？', hint:'怎么叫你都行，妈妈、姐、阿姨…', type:'text', required:true },
@@ -364,7 +373,7 @@ btnNext.addEventListener('click', () => {
 
   // 最后一页
   if (currentStep >= totalSteps - 1) {
-    alert('建档完成！\n\n' + JSON.stringify(profile, null, 2));
+    window.location.href = 'home.html';
     return;
   }
 
