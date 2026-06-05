@@ -327,7 +327,7 @@ function e(s){const d=document.createElement('div');d.textContent=s;return d.inn
   document.getElementById('greeting').innerHTML=`${g}，<span class="name">${e(p.name)}</span>`;
   renderCheckin();renderTask();renderLogs();renderWeeklyBanner();
 })();
-document.getElementById('cta-btn').addEventListener('click',()=>{location.href='index.html?chat=1';});
+document.getElementById('cta-btn').addEventListener('click',()=>{sessionStorage.setItem('from_home','1');location.href='index.html';});
 document.getElementById('profile-btn').addEventListener('click',()=>{alert('档案功能即将上线');});
 </script>
 </body>

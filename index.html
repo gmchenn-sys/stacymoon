@@ -148,13 +148,13 @@
         window.location.replace('onboarding.html');
         return;
       }
-      // 有档案 + 非主动进入（没带 ?chat）→ 去首页
-      if (!location.search.includes('chat')) {
+      // 从首页点进来的 → 正常聊天；否则 → 先去首页
+      if (sessionStorage.getItem('from_home') === '1') {
+        sessionStorage.removeItem('from_home');
+        overlay.style.display = 'none';
+      } else {
         window.location.replace('home.html');
-        return;
       }
-      // 带 ?chat=1 从首页点进来的 → 正常聊天
-      overlay.style.display = 'none';
       return;
     }
 
