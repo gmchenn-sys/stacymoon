@@ -5,7 +5,7 @@ export async function onRequestPost(context) {
   try {
     const body = await context.request.json();
 
-    const res = await fetch('http://43.128.150.218:8000/chat', {
+    const res = await fetch('https://textbook-que-academy-language.trycloudflare.com/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
