@@ -6,6 +6,14 @@ function getUserId() {
   return localStorage.getItem('stacy_invite_code') || '';
 }
 
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '');
+}
+
 async function askStacy(userMessage) {
   conversationHistory.push({ role: "user", content: userMessage });
 
@@ -24,7 +32,7 @@ async function askStacy(userMessage) {
   }
 
   const data = await response.json();
-  const reply = data.response;
+  const reply = stripMarkdown(data.response);
   if (!reply) throw new Error('Agent 返回为空');
 
   conversationHistory.push({ role: "assistant", content: reply });
@@ -50,7 +58,7 @@ async function askStacyStream(userMessage, onSentence, onChar) {
   }
 
   const data = await response.json();
-  const fullText = data.response;
+  const fullText = stripMarkdown(data.response);
   if (!fullText) throw new Error('Agent 返回为空');
 
   // 逐字输出模拟流式
