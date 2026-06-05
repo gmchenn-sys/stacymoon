@@ -279,13 +279,13 @@ async function generateSummary(logs, chats, symptomCount, daysWithData) {
     const trend = moodScores.length >= 2 && moodScores[moodScores.length-1].score > moodScores[0].score ? '上升' : '有波动';
     const topSymptoms = Object.entries(symptomCount).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`${({hot_flash:'潮热',night_sweat:'出汗',poor_sleep:'睡不好',mood_swing:'情绪波动',joint_pain:'关节疼',brain_fog:'脑雾'}[k]||k)}(${v}次)`).join('、');
     const prompt = `用户本周打卡${daysWithData}天，对话${chats.length}次。心情趋势：${trend}。最常出现的症状：${topSymptoms||'无明显症状'}。请用2-3句话给这位围经期用户一个温柔、鼓励的周报小结。称呼她"你"。直接说内容，不要"这周..."开头。50字以内。`;
-    const key = window.DEEPSEEK_API_KEY || 'sk-4c483cb60ccd4bc58ec5f2846c774063';
-    const res = await fetch('https://api.deepseek.com/chat/completions', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-      body:JSON.stringify({model:'deepseek-chat',max_tokens:120,messages:[{role:'user',content:prompt}]})
+    const uid = localStorage.getItem('stacy_invite_code') || '';
+    const res = await fetch('http://43.128.150.218:8000/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:prompt, user_id:uid})
     });
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || '';
+    const reply = data.response || '';
     el.textContent = reply || '数据积累中，多记录几天后 Stacy 会更了解你。';
   } catch(e) {
     el.textContent = '心情有起伏是正常的，记录下来的每一天都在帮你更好地了解自己的身体。';

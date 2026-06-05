@@ -1,243 +1,84 @@
-// Stacy Moon — AI API Layer
+// Stacy Moon — AI API Layer (Agent Server)
 
-const SYSTEM_PROMPT_BASE = `你是 Stacy，基于运动科学家 Stacy Sims 的研究。
-
-【最核心的一句话】
-女性不是缩小版男性——所有建议必须从女性生理出发，不是男性数据的缩放。
-
-【围绝经期/绝经期的生理现实】
-- 雌激素下降影响血清素（情绪）、体温调节（潮热）、关节润滑（疼痛）、骨密度
-- 皮质醇更难被抑制，压力反应更强，睡眠更容易被打断
-- 肌肉流失加速，但这是可以被训练对抗的，不是不可逆的
-- 体重变化不是因为"吃太多"，而是激素环境改变了代谢
-- 情绪波动不是脾气变差，是神经递质在波动，是生理现象不是性格问题
-
-【Stacy Sims 最重要的纠偏】
-- 不要少吃：活跃女性吃太少只会让激素更乱，代谢更差
-- 不要盲目断食：空腹训练对围绝经期女性弊大于利，会升高皮质醇
-- 不要只做有氧：力量训练和短时高强度比长时间慢跑更能对抗肌肉流失和骨密度下降
-- 不要忽视蛋白质：每公斤体重至少1.6-2g蛋白质，分散在每餐摄入
-- 补剂优先级：甘氨酸镁（睡眠+情绪）、维D+K2（骨骼）、胶原蛋白+维C（关节）、肌酸（肌肉和认知）
-
-【回答工作流】
-1. 先共情——承认她的感受是真实的、有生理原因的，不是她的错
-2. 用一句话解释生理机制——让她理解身体在发生什么
-3. 给1-2个今天就能做的具体建议
-4. 语气像懂医学的老朋友，不说教，不说"你应该"
-5. 100字以内，中文回复
-
-【常见场景的 Stacy Sims 式回答】
-潮热/心跳快：血管舒缩反应，雌激素影响体温调节中枢。深呼吸4秒吸-6秒呼，找凉快地方，补甘氨酸镁，减少咖啡因。
-睡眠差/夜醒：雌激素影响体温和皮质醇节律。睡前2小时补甘氨酸镁200-400mg，固定起床时间，睡前1小时手机放远。
-情绪波动/想哭：不是脆弱，是雌激素下降影响血清素。每天20-30分钟走路或力量训练是最有效的天然血清素调节剂。
-关节痛/僵硬：雌激素有保护关节的作用，下降后关节更敏感。每天胶原蛋白15g+维C，温和抗阻训练比静养更有效。
-疲惫没力气：先查蛋白质够不够（每餐30g），铁和维D是否缺乏，不要用少吃来应对。
-体重增加：不是意志力问题，是激素环境改变了脂肪分布。少吃会让情况更糟，优先保证蛋白质和力量训练。
-脑雾/记忆差：雌激素影响认知，肌酸3-5g/天有证据支持改善认知，有氧运动也有帮助。
-
-【格式要求】
-不使用任何 Markdown 格式，不用星号、井号、破折号、反引号等符号，直接用自然口语回复。
-不要每条回复都叫对方的名字。名字只在非常自然的时候偶尔用一次，比如第一次打招呼或者对话转折时，不要每句话开头都带名字。
-
-【绝对不说的话】
-- 绝对不要在回复开头称呼用户名字。不说"李姐，"，不说"张阿姨，"，不用任何称呼开头。直接说内容。
-- 不说"你要控制饮食"
-- 不说"这是正常的，忍一忍"
-- 不说"你应该去看医生"（除非真的涉及药物和激素治疗）
-- 不把症状归因于年龄大了或者心态问题`;
-
-const PERIOD_LABELS = { regular:'规律', irregular:'开始不规律', stopped:'已停经' };
-const EXERCISE_LABELS = { frequent:'经常（每周3次以上）', occasional:'偶尔（每周1-2次）', rare:'很少或没有' };
-const DIET_LABELS = { none:'没有特别', vegetarian:'素食', low_carb:'不吃碳水', intermittent:'16+8间歇断食', other:'其他' };
-const SYMPTOM_LABELS = {
-  hot_flash:'潮热', night_sweat:'夜间出汗', poor_sleep:'睡眠变差',
-  mood_swing:'情绪波动', joint_pain:'关节不舒服', brain_fog:'脑雾记忆差'
-};
-
-function buildProfileSection() {
-  try {
-    const p = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
-    if (!p || !p.name) return '';
-    const lines = [];
-    lines.push('【用户个人档案】');
-    if (p.name) lines.push(`称呼：${p.name}（只在极少数非常自然的场景下才用名字，比如安慰或者转折，绝大多数回复直接开始说内容）`);
-    if (p.age) lines.push(`年龄：${p.age}岁`);
-    if (p.height || p.weight) {
-      const h = p.height ? `${p.height}cm` : '--';
-      const w = p.weight ? `${p.weight}kg` : '--';
-      lines.push(`身高体重：${h} / ${w}`);
-    }
-    if (p.period_status) {
-      const label = PERIOD_LABELS[p.period_status] || p.period_status;
-      const extra = p.period_stopped_howlong ? `（停了${p.period_stopped_howlong}）` : '';
-      lines.push(`月经状态：${label}${extra}`);
-    }
-    if (Array.isArray(p.symptoms) && p.symptoms.length > 0 && !(p.symptoms.length === 1 && p.symptoms[0] === 'none')) {
-      const labels = p.symptoms.map(s => SYMPTOM_LABELS[s] || s).join('、');
-      lines.push(`当前症状：${labels}`);
-    }
-    if (p.exercise) {
-      const freq = EXERCISE_LABELS[p.exercise] || p.exercise;
-      const type = p.exercise_type ? `，${p.exercise_type}` : '';
-      lines.push(`运动习惯：${freq}${type}`);
-    }
-    if (p.diet) {
-      const dVal = typeof p.diet === 'object' ? p.diet.value : p.diet;
-      if (dVal && dVal !== 'none') {
-        const dLabel = DIET_LABELS[dVal] || dVal;
-        const note = p.diet_note ? `，${p.diet_note}` : '';
-        lines.push(`饮食限制：${dLabel}${note}`);
-      }
-    }
-    if (p.medication) lines.push(`用药/保健品：${p.medication}`);
-    if (lines.length === 1) return '';
-    return '\n\n' + lines.join('\n');
-  } catch { return ''; }
-}
-
-// ── 今日打卡记录（来自 home.html 的每日打卡）──
-function buildDailyReport() {
-  try {
-    const logs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
-    const today = new Date().toISOString().slice(0,10);
-    const todayLog = logs.find(l => l.date === today);
-    if (!todayLog) return '';
-    const lines = [];
-    lines.push('【今日身体报告】');
-    if (todayLog.mood) {
-      const moodMap = { '😊':'不错', '😐':'一般', '😤':'烦躁', '😢':'低落', '😴':'很累' };
-      lines.push(`今天心情：${moodMap[todayLog.mood] || todayLog.mood}`);
-    }
-    if (todayLog.sleep_score) lines.push(`昨晚睡眠：${todayLog.sleep_score}/5分`);
-    if (todayLog.symptoms && todayLog.symptoms.length > 0) {
-      const labels = todayLog.symptoms.map(s => SYMPTOM_LABELS[s] || s).join('、');
-      lines.push(`今天症状：${labels}`);
-    }
-    if (todayLog.note) lines.push(`今天备注：${todayLog.note}`);
-    return '\n\n' + lines.join('\n');
-  } catch { return ''; }
-}
-
-function getSystemPrompt() {
-  return SYSTEM_PROMPT_BASE + buildProfileSection() + buildDailyReport();
-}
+const API_BASE = 'http://43.128.150.218:8000';
 
 let conversationHistory = [];
 
+function getUserId() {
+  return localStorage.getItem('stacy_invite_code') || '';
+}
+
 async function askStacy(userMessage) {
-  conversationHistory.push({
-    role: "user",
-    content: userMessage
-  });
+  conversationHistory.push({ role: "user", content: userMessage });
 
-  const apiUrl = 'https://api.deepseek.com/chat/completions';
-
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + window.DEEPSEEK_API_KEY
-    },
+  const response = await fetch(`${API_BASE}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: "deepseek-chat",
-      max_tokens: 300,
-      messages: [
-        { role: "system", content: getSystemPrompt() },
-        ...conversationHistory
-      ]
+      message: userMessage,
+      user_id: getUserId()
     })
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'API 请求失败: ' + response.status);
+    const err = await response.text().catch(() => '');
+    throw new Error('Agent 请求失败: ' + response.status + (err ? ' ' + err.slice(0, 100) : ''));
   }
 
   const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content;
-  if (!reply) throw new Error('API 返回为空');
+  const reply = data.response;
+  if (!reply) throw new Error('Agent 返回为空');
 
-  conversationHistory.push({
-    role: "assistant",
-    content: reply
-  });
-
+  conversationHistory.push({ role: "assistant", content: reply });
   return reply;
 }
 
-// 流式版本：AI 边生成边回调，语音模式用
-// onSentence(sentence) — 检测到完整句子时调用，用于排队 TTS
-// onChar(char) — 每个字回调，用于实时更新气泡
+// 模拟流式版本（Agent 不返回 SSE，用逐字输出模拟，保持 TTS 排队逻辑工作）
 async function askStacyStream(userMessage, onSentence, onChar) {
   conversationHistory.push({ role: "user", content: userMessage });
 
-  const response = await fetch('https://api.deepseek.com/chat/completions', {
+  const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + window.DEEPSEEK_API_KEY
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'deepseek-chat',
-      max_tokens: 300,
-      stream: true,
-      messages: [
-        { role: 'system', content: getSystemPrompt() },
-        ...conversationHistory
-      ]
+      message: userMessage,
+      user_id: getUserId()
     })
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'API 请求失败: ' + response.status);
+    const err = await response.text().catch(() => '');
+    throw new Error('Agent 请求失败: ' + response.status + (err ? ' ' + err.slice(0, 100) : ''));
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let fullText = '';
+  const data = await response.json();
+  const fullText = data.response;
+  if (!fullText) throw new Error('Agent 返回为空');
+
+  // 逐字输出模拟流式
   let sentenceBuffer = '';
-  let buf = '';
+  for (let i = 0; i < fullText.length; i++) {
+    const char = fullText[i];
+    sentenceBuffer += char;
+    if (onChar) onChar(char);
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop(); // 保留不完整的最后一行
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice(6);
-      if (data === '[DONE]') continue;
-
-      let parsed;
-      try { parsed = JSON.parse(data); } catch { continue; }
-      const delta = parsed.choices?.[0]?.delta?.content;
-      if (!delta) continue;
-
-      fullText += delta;
-      sentenceBuffer += delta;
-
-      // 实时显示
-      if (onChar) onChar(delta);
-
-      // 检测句子边界：。！？换行
-      const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
-      if (m) {
-        const sentence = m[1].trim();
-        sentenceBuffer = m[2];
-        if (sentence && onSentence) onSentence(sentence);
-      }
+    // 检测句子边界：。！？换行
+    const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
+    if (m) {
+      const sentence = m[1].trim();
+      sentenceBuffer = m[2];
+      if (sentence && onSentence) onSentence(sentence);
     }
+
+    // 每字延迟 30ms，模拟打字效果
+    await new Promise(r => setTimeout(r, 30));
   }
 
-  // 剩余尾部文字也发送
+  // 剩余尾部文字
   if (sentenceBuffer.trim() && onSentence) {
     onSentence(sentenceBuffer.trim());
   }
 
-  conversationHistory.push({ role: 'assistant', content: fullText });
+  conversationHistory.push({ role: "assistant", content: fullText });
   return fullText;
 }
