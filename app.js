@@ -292,7 +292,7 @@ async function startRecording() {
               sttAutoStartTimer = setTimeout(() => {
                 sttAutoStartTimer = null;
                 startRecording();
-              }, 2000);
+              }, 500);
             }
             return;
           }
@@ -582,7 +582,7 @@ async function handleSpeechInput(text) {
     ttsProcessing = false;
 
     isSpeaking = false;
-    console.log('[TTS] drainTtsQueue 完成, 2s 后自动录音（此期间点击可关闭）');
+    console.log('[TTS] drainTtsQueue 完成, 500ms 后自动录音');
     // 清除旧定时器，设新定时器
     if (sttAutoStartTimer) clearTimeout(sttAutoStartTimer);
     if (voiceActive) {
