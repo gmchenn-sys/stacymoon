@@ -1,6 +1,4 @@
-// Stacy Moon — AI API Layer (Agent Server)
-
-const API_BASE = 'http://43.128.150.218:8000';
+// Stacy Moon — AI API Layer (Cloudflare Proxy)
 
 let conversationHistory = [];
 
@@ -11,7 +9,7 @@ function getUserId() {
 async function askStacy(userMessage) {
   conversationHistory.push({ role: "user", content: userMessage });
 
-  const response = await fetch(`${API_BASE}/chat`, {
+  const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -37,7 +35,7 @@ async function askStacy(userMessage) {
 async function askStacyStream(userMessage, onSentence, onChar) {
   conversationHistory.push({ role: "user", content: userMessage });
 
-  const response = await fetch(`${API_BASE}/chat`, {
+  const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

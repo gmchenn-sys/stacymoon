@@ -280,7 +280,7 @@ async function generateSummary(logs, chats, symptomCount, daysWithData) {
     const topSymptoms = Object.entries(symptomCount).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,v])=>`${({hot_flash:'潮热',night_sweat:'出汗',poor_sleep:'睡不好',mood_swing:'情绪波动',joint_pain:'关节疼',brain_fog:'脑雾'}[k]||k)}(${v}次)`).join('、');
     const prompt = `用户本周打卡${daysWithData}天，对话${chats.length}次。心情趋势：${trend}。最常出现的症状：${topSymptoms||'无明显症状'}。请用2-3句话给这位围经期用户一个温柔、鼓励的周报小结。称呼她"你"。直接说内容，不要"这周..."开头。50字以内。`;
     const uid = localStorage.getItem('stacy_invite_code') || '';
-    const res = await fetch('http://43.128.150.218:8000/chat', {
+    const res = await fetch('/api/chat', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({message:prompt, user_id:uid})
     });
