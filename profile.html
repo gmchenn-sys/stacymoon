@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Stacy Moon · 档案</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--accent:#F97316;--text:#e4e4e7;--text-muted:#71717a;--surface:#12121a;
+  --border:rgba(255,255,255,0.06);--radius:14px;
+}
+body{
+  font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+  max-width:420px;margin:0 auto;min-height:100dvh;padding:0 16px 90px;
+  padding-top:max(12px,env(safe-area-inset-top));
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── 顶部栏 ─────── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;padding:8px 4px 16px;
+}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:4px;font-family:inherit}
+.title{font-size:1rem;font-weight:600;color:#fff}
+
+/* ── 区段 ──────── */
+.section{margin-bottom:16px}
+.section-label{font-size:0.68rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.section-label .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+.text-input{
+  width:100%;height:48px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+  color:#fff;font-family:inherit;font-size:0.95rem;padding:0 14px;outline:none;transition:border-color 0.2s;
+}
+.text-input:focus{border-color:var(--accent)}
+.text-input::placeholder{color:#444}
+.input-pair{display:flex;gap:10px}
+.input-pair .text-input{flex:1}
+
+.option-list{display:flex;flex-direction:column;gap:8px}
+.option{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;
+  border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:0.9rem;color:var(--text);
+  transition:border-color 0.2s,background 0.2s;
+  -webkit-tap-highlight-color:transparent;user-select:none;
+}
+.option.selected{border-color:var(--accent);background:rgba(249,115,22,0.1)}
+.option-radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--text-muted);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.option.selected .option-radio{border-color:var(--accent);background:var(--accent)}
+.option.selected .option-radio::after{content:'';width:7px;height:7px;border-radius:50%;background:#fff}
+.option-check{width:18px;height:18px;border-radius:5px;border:2px solid var(--text-muted);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.option.selected .option-check{border-color:var(--accent);background:var(--accent)}
+.option.selected .option-check::after{content:'✓';color:#fff;font-size:11px;font-weight:700;line-height:1}
+.inline-input{margin-top:8px;width:100%;height:40px;font-size:0.85rem}
+
+/* ── 保存按钮 ───── */
+.save-wrap{padding:12px 0}
+.save-btn{
+  width:100%;height:52px;border-radius:14px;border:none;background:var(--accent);color:#fff;
+  font-family:inherit;font-size:1rem;font-weight:500;cursor:pointer;
+  transition:opacity 0.2s,transform 0.15s;
+}
+.save-btn:active{opacity:0.85;transform:scale(0.97)}
+.save-btn.done{background:#22c55e}
+
+.show{display:block !important}
+
+/* ── 底部导航栏 ──── */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+  display:flex;justify-content:space-around;align-items:center;
+  background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  z-index:200;
+}
+.nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 20px;text-decoration:none;color:var(--text-muted);font-size:0.65rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+.nav-tab .nav-icon{font-size:20px;line-height:1}
+.nav-tab.active{color:var(--accent)}
+.nav-tab:active{opacity:0.7}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back-btn" onclick="location.href='home.html'">← 返回</button>
+  <div class="title">📋 我的档案</div>
+  <div style="width:48px"></div>
+</div>
+
+<form id="profile-form" onsubmit="return false">
+<div class="section"><div class="section-label"><span class="dot"></span>称呼</div><input class="text-input" id="f-name" placeholder="你希望我怎么称呼你？"></div>
+<div class="section"><div class="section-label"><span class="dot"></span>年龄</div><input class="text-input" id="f-age" type="number" placeholder="年龄" inputmode="numeric"></div>
+<div class="section"><div class="section-label"><span class="dot"></span>身高体重</div><div class="input-pair"><input class="text-input" id="f-height" type="number" placeholder="身高 cm" inputmode="decimal"><input class="text-input" id="f-weight" type="number" placeholder="体重 kg" inputmode="decimal"></div></div>
+<div class="section"><div class="section-label"><span class="dot"></span>月经状态</div>
+  <div class="option-list" id="period-options">
+    <div class="option" data-value="regular"><div class="option-radio"></div>还规律</div>
+    <div class="option" data-value="irregular"><div class="option-radio"></div>开始不规律</div>
+    <div class="option" data-value="stopped"><div class="option-radio"></div>已停经</div>
+  </div>
+  <input class="text-input inline-input" id="f-period-howlong" placeholder="停了多久？例如：2年" style="display:none">
+</div>
+<div class="section"><div class="section-label"><span class="dot"></span>症状（多选）</div>
+  <div class="option-list" id="symptom-options">
+    <div class="option" data-value="hot_flash"><div class="option-check"></div>潮热</div>
+    <div class="option" data-value="night_sweat"><div class="option-check"></div>夜间出汗</div>
+    <div class="option" data-value="poor_sleep"><div class="option-check"></div>睡眠变差</div>
+    <div class="option" data-value="mood_swing"><div class="option-check"></div>情绪波动</div>
+    <div class="option" data-value="joint_pain"><div class="option-check"></div>关节不舒服</div>
+    <div class="option" data-value="brain_fog"><div class="option-check"></div>脑雾记忆差</div>
+    <div class="option" data-value="none" style="opacity:0.5"><div class="option-check"></div>以上都没有</div>
+  </div>
+</div>
+<div class="section"><div class="section-label"><span class="dot"></span>运动习惯</div>
+  <div class="option-list" id="exercise-options">
+    <div class="option" data-value="frequent"><div class="option-radio"></div>经常（每周3次以上）</div>
+    <div class="option" data-value="occasional"><div class="option-radio"></div>偶尔（每周1-2次）</div>
+    <div class="option" data-value="rare"><div class="option-radio"></div>很少或没有</div>
+  </div>
+  <input class="text-input inline-input" id="f-exercise-type" placeholder="做什么运动？例如：散步、瑜伽" style="margin-top:10px">
+</div>
+<div class="section"><div class="section-label"><span class="dot"></span>饮食限制</div>
+  <div class="option-list" id="diet-options">
+    <div class="option" data-value="none"><div class="option-radio"></div>没有特别</div>
+    <div class="option" data-value="vegetarian"><div class="option-radio"></div>素食</div>
+    <div class="option" data-value="low_carb"><div class="option-radio"></div>不吃碳水</div>
+    <div class="option" data-value="intermittent"><div class="option-radio"></div>16+8间歇断食</div>
+    <div class="option" data-value="other"><div class="option-radio"></div>其他</div>
+  </div>
+  <input class="text-input inline-input" id="f-diet-note" placeholder="请补充" style="margin-top:10px">
+</div>
+<div class="section"><div class="section-label"><span class="dot"></span>用药/保健品</div><input class="text-input" id="f-medication" placeholder="例如：钙片、维D、降压药…"></div>
+
+<div class="save-wrap"><button class="save-btn" id="save-btn" type="button">保存</button></div>
+</form>
+
+<nav class="bottom-nav">
+  <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+  <a class="nav-tab" href="index.html" onclick="sessionStorage.setItem('from_home','1')"><span class="nav-icon">🌙</span>聊天</a>
+  <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+</nav>
+
+<script>
+// ── 加载档案 ──────────────────────────────
+const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
+
+// 文字字段
+['name','age','medication'].forEach(k => {
+  const el = document.getElementById(`f-${k}`); if (el && profile[k]) el.value = profile[k];
+});
+if (profile.height) document.getElementById('f-height').value = profile.height;
+if (profile.weight) document.getElementById('f-weight').value = profile.weight;
+if (profile.exercise_type) document.getElementById('f-exercise-type').value = profile.exercise_type;
+if (profile.diet_note) document.getElementById('f-diet-note').value = profile.diet_note;
+if (profile.period_stopped_howlong) {
+  document.getElementById('f-period-howlong').value = profile.period_stopped_howlong;
+}
+
+// 单选恢复
+function restoreRadio(containerId, value) {
+  if (!value) return;
+  const opt = document.getElementById(containerId).querySelector(`.option[data-value="${value}"]`);
+  if (opt) opt.classList.add('selected');
+}
+restoreRadio('period-options', profile.period_status);
+restoreRadio('exercise-options', profile.exercise);
+const dietVal = typeof profile.diet === 'object' ? profile.diet.value : profile.diet;
+restoreRadio('diet-options', dietVal);
+
+// 月经子字段
+if (profile.period_status === 'stopped') document.getElementById('f-period-howlong').classList.add('show');
+
+// 多选恢复
+if (Array.isArray(profile.symptoms)) {
+  profile.symptoms.forEach(v => {
+    const opt = document.getElementById('symptom-options').querySelector(`.option[data-value="${v}"]`);
+    if (opt) opt.classList.add('selected');
+  });
+}
+
+// ── 单选交互 ──────────────────────────────
+document.querySelectorAll('.option-list').forEach(list => {
+  const isRadio = !!list.querySelector('.option-radio');
+  list.addEventListener('click', e => {
+    const opt = e.target.closest('.option'); if (!opt) return;
+    if (isRadio) {
+      list.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      // 月经 special
+      if (list.id === 'period-options') {
+        const howlong = document.getElementById('f-period-howlong');
+        if (opt.dataset.value === 'stopped') howlong.classList.add('show');
+        else howlong.classList.remove('show');
+      }
+    } else {
+      // 多选
+      opt.classList.toggle('selected');
+      if (opt.dataset.value === 'none' && opt.classList.contains('selected')) {
+        list.querySelectorAll('.option').forEach(o => { if (o.dataset.value !== 'none') o.classList.remove('selected'); });
+      } else if (opt.classList.contains('selected')) {
+        const n = list.querySelector('.option[data-value="none"]');
+        if (n) n.classList.remove('selected');
+      }
+    }
+  });
+});
+
+// ── 保存 ──────────────────────────────────
+document.getElementById('save-btn').addEventListener('click', () => {
+  const p = {};
+  p.name = document.getElementById('f-name').value.trim();
+  p.age = document.getElementById('f-age').value.trim();
+  p.height = document.getElementById('f-height').value.trim();
+  p.weight = document.getElementById('f-weight').value.trim();
+  p.medication = document.getElementById('f-medication').value.trim();
+  p.exercise_type = document.getElementById('f-exercise-type').value.trim();
+  p.diet_note = document.getElementById('f-diet-note').value.trim();
+  p.period_stopped_howlong = document.getElementById('f-period-howlong').value.trim();
+
+  const periodOpt = document.getElementById('period-options').querySelector('.option.selected');
+  p.period_status = periodOpt ? periodOpt.dataset.value : '';
+
+  const exerciseOpt = document.getElementById('exercise-options').querySelector('.option.selected');
+  p.exercise = exerciseOpt ? exerciseOpt.dataset.value : '';
+
+  const dietOpt = document.getElementById('diet-options').querySelector('.option.selected');
+  p.diet = dietOpt ? dietOpt.dataset.value : '';
+
+  p.symptoms = [...document.getElementById('symptom-options').querySelectorAll('.option.selected')].map(o => o.dataset.value);
+
+  localStorage.setItem('stacy_profile', JSON.stringify(p));
+  const btn = document.getElementById('save-btn');
+  btn.textContent = '✅ 保存成功';
+  btn.classList.add('done');
+  setTimeout(() => { location.href = 'home.html'; }, 800);
+});
+</script>
+</body>
+</html>
