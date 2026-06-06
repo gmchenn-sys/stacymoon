@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Stacy Moon · 对话记录</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--accent:#F97316;--text:#e4e4e7;--text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:14px}
+body{
+  font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+  max-width:420px;margin:0 auto;min-height:100dvh;padding:0 16px 90px;
+  padding-top:max(12px,env(safe-area-inset-top));
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 16px}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:4px;font-family:inherit}
+.title{font-size:1rem;font-weight:600;color:#fff}
+
+/* ── 日期分组 ──── */
+.date-group{margin-bottom:16px}
+.date-header{
+  display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;
+  font-size:0.78rem;color:var(--text-muted);font-weight:500;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.date-header .arrow{font-size:10px;transition:transform 0.2s;color:var(--text-muted)}
+.date-header.collapsed .arrow{transform:rotate(-90deg)}
+.date-header .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:0.5}
+.date-body{overflow:hidden;transition:max-height 0.35s ease}
+.date-body.collapsed{max-height:0 !important}
+
+/* ── 对话条目 ──── */
+.msg-item{padding:10px 14px;border-radius:10px;margin-bottom:8px;line-height:1.5}
+.msg-user{background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);color:var(--text);font-size:0.82rem}
+.msg-ai{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);font-size:0.8rem}
+.msg-time{font-size:0.65rem;color:var(--text-muted);margin-bottom:3px;opacity:0.5}
+
+.empty-state{text-align:center;padding:64px 20px;color:var(--text-muted);font-size:0.82rem;line-height:1.8}
+
+/* ── 底部导航栏 ──── */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+  display:flex;justify-content:space-around;align-items:center;
+  background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  z-index:200;
+}
+.nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;text-decoration:none;color:var(--text-muted);font-size:0.6rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+.nav-tab .nav-icon{font-size:18px;line-height:1}
+.nav-tab:active{opacity:0.7}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back-btn" onclick="location.href='index.html'">← 返回</button>
+  <div class="title">📋 对话记录</div>
+  <div style="width:48px"></div>
+</div>
+
+<div id="content"></div>
+
+<nav class="bottom-nav">
+  <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+  <a class="nav-tab" href="index.html" onclick="sessionStorage.setItem('from_home','1')"><span class="nav-icon">🌙</span>聊天</a>
+  <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+  <a class="nav-tab" href="history.html"><span class="nav-icon">📅</span>打卡</a>
+  <a class="nav-tab" href="reminder.html"><span class="nav-icon">💊</span>用药</a>
+</nav>
+
+<script>
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+var WEEKDAYS = ['日','一','二','三','四','五','六'];
+
+var logs = [];
+try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
+
+if (logs.length === 0) {
+  document.getElementById('content').innerHTML = '<div class="empty-state">还没有对话记录<br>去首页跟 Stacy 聊两句吧</div>';
+} else {
+  // 按日期分组（逆序）
+  var groups = {};
+  logs.slice().reverse().forEach(function(l) {
+    var d;
+    if (l.created_at) { d = l.created_at.slice(0, 10); }
+    else { d = '未知日期'; }
+    if (!groups[d]) groups[d] = [];
+    groups[d].push(l);
+  });
+
+  var html = '';
+  Object.keys(groups).sort(function(a,b) { return b.localeCompare(a); }).forEach(function(date) {
+    var dateDisplay = date;
+    if (date !== '未知日期') {
+      var dt = new Date(date + 'T00:00:00');
+      dateDisplay = (dt.getMonth()+1) + '月' + dt.getDate() + '日（' + WEEKDAYS[dt.getDay()] + '）';
+    }
+    var groupId = 'group-' + date.replace(/-/g, '');
+    html += '<div class="date-group">';
+    html += '<div class="date-header" onclick="toggleDate(\'' + groupId + '\', this)">';
+    html += '<span class="arrow">▼</span>';
+    html += '<span class="dot"></span>';
+    html += '<span>' + dateDisplay + ' · ' + groups[date].length + ' 条对话</span>';
+    html += '</div>';
+    html += '<div class="date-body" id="' + groupId + '">';
+    groups[date].forEach(function(l) {
+      var time = l.time || '';
+      var userMsg = l.userMessage || l.user_message || '';
+      var aiMsg = l.aiReply || l.ai_reply || '';
+      if (userMsg) {
+        html += '<div class="msg-item msg-user"><div class="msg-time">' + esc(time) + '</div>' + esc(userMsg) + '</div>';
+      }
+      if (aiMsg) {
+        html += '<div class="msg-item msg-ai"><div class="msg-time">Stacy · ' + esc(time) + '</div>' + esc(aiMsg) + '</div>';
+      }
+    });
+    html += '</div></div>';
+  });
+
+  document.getElementById('content').innerHTML = html;
+
+  // 设置每个 date-body 的高度用于折叠动画
+  setTimeout(function() {
+    document.querySelectorAll('.date-body').forEach(function(el) {
+      el.style.maxHeight = el.scrollHeight + 'px';
+    });
+  }, 50);
+}
+
+function toggleDate(groupId, header) {
+  var body = document.getElementById(groupId);
+  if (!body) return;
+  var collapsed = body.classList.contains('collapsed');
+  header.classList.toggle('collapsed');
+  body.classList.toggle('collapsed');
+  if (!collapsed) {
+    body.style.maxHeight = '0px';
+  } else {
+    body.style.maxHeight = body.scrollHeight + 'px';
+  }
+}
+</script>
+</body>
+</html>

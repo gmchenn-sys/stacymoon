@@ -105,6 +105,10 @@
     </svg>
     <h1 class="title">Stacy Moon</h1>
     <p class="subtitle">有什么不舒服，告诉我</p>
+    <div class="header-actions">
+      <button class="header-icon-btn" id="history-btn" title="历史记录" onclick="location.href='chat_history.html'">📋</button>
+      <button class="header-icon-btn danger" id="clear-btn" title="清空对话">🗑️</button>
+    </div>
   </header>
 
   <main class="chat-box" id="chat-box">
@@ -205,6 +209,25 @@
     </div>
     <p class="first-chat-hint" id="first-chat-hint">可以直接说话，也可以打字 👆</p>
   </footer>
+
+  <script>
+  // ── 清空对话 ──────────────────────────
+  document.getElementById('clear-btn').addEventListener('click', function() {
+    if (!confirm('清空后记录无法恢复，确定要清空对话吗？')) return;
+    localStorage.removeItem('stacy_logs');
+    // 直接清空聊天框，只保留欢迎气泡
+    var chatBox = document.getElementById('chat-box');
+    chatBox.innerHTML = '<div class="bubble-row ai"><span class="avatar">🌙</span><div class="bubble ai-bubble" id="welcome-bubble">我在，有什么想说的都可以告诉我。🌙</div></div>';
+    // 重新跑欢迎语
+    var profile = {};
+    try { profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}'); } catch {}
+    var name = profile.name || '';
+    var prefix = name ? name + '，' : '';
+    var pool = ['今天身体感觉怎么样？', '有什么想和我说的吗？', '今天过得怎么样？'];
+    var msg = pool[Math.floor(Math.random() * pool.length)];
+    document.getElementById('welcome-bubble').textContent = prefix + msg;
+  });
+  </script>
 
   <nav class="bottom-nav">
     <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
