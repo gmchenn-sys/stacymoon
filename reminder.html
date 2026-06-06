@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Stacy Moon · 用药提醒</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--accent:#F97316;--text:#e4e4e7;--text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:14px}
+body{
+  font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+  max-width:420px;margin:0 auto;min-height:100dvh;padding:0 16px 90px;
+  padding-top:max(12px,env(safe-area-inset-top));
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 16px}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:4px;font-family:inherit}
+.title{font-size:1rem;font-weight:600;color:#fff}
+
+/* ── 提醒卡片 ──── */
+.reminder-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:14px;
+  transition:opacity 0.3s;
+}
+.reminder-card.disabled{opacity:0.4}
+.reminder-icon{font-size:28px;flex-shrink:0}
+.reminder-body{flex:1;min-width:0}
+.reminder-name{font-size:0.9rem;color:#fff;font-weight:500;margin-bottom:4px}
+.reminder-times{font-size:0.75rem;color:var(--text-muted)}
+.reminder-note{font-size:0.68rem;color:var(--text-muted);margin-top:2px;font-style:italic}
+.reminder-actions{display:flex;gap:6px;flex-shrink:0}
+.icon-btn{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-muted);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:14px;transition:border-color 0.2s,color 0.2s;
+}
+.icon-btn:active{border-color:var(--accent);color:var(--accent)}
+.icon-btn.danger:active{border-color:#EF4444;color:#EF4444}
+.switch{
+  width:44px;height:26px;border-radius:13px;border:none;background:#333;
+  cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;
+}
+.switch.on{background:#22c55e}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left 0.2s}
+.switch.on::after{left:21px}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--text-muted);font-size:0.82rem;line-height:1.8}
+
+/* ── 添加按钮 ──── */
+.add-btn-wrap{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:388px}
+.add-btn{
+  width:100%;height:48px;border-radius:14px;border:1px dashed rgba(249,115,22,0.3);
+  background:rgba(249,115,22,0.06);color:var(--accent);font-family:inherit;font-size:0.9rem;font-weight:500;
+  cursor:pointer;transition:background 0.2s;
+}
+.add-btn:active{background:rgba(249,115,22,0.12)}
+
+/* ── 弹窗 ──── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;
+  display:flex;align-items:flex-end;justify-content:center;padding:16px;
+}
+.overlay.hidden{display:none}
+.modal{
+  background:#1a1a24;border-radius:18px 18px 0 0;width:100%;max-width:420px;
+  max-height:80dvh;overflow-y:auto;padding:24px 20px 32px;
+}
+.modal-title{font-size:1rem;font-weight:600;color:#fff;margin-bottom:20px;text-align:center}
+.modal-field{margin-bottom:16px}
+.modal-label{font-size:0.72rem;color:var(--text-muted);margin-bottom:6px}
+.text-input{
+  width:100%;height:48px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+  color:#fff;font-family:inherit;font-size:0.95rem;padding:0 14px;outline:none;
+}
+.text-input:focus{border-color:var(--accent)}
+.text-input::placeholder{color:#444}
+
+.option-row{display:flex;gap:8px}
+.option-btn{
+  flex:1;height:42px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-muted);font-family:inherit;font-size:0.82rem;cursor:pointer;transition:all 0.15s;
+}
+.option-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.12);color:var(--accent)}
+.option-btn:active{opacity:0.8}
+
+.time-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.time-row .text-input{flex:1}
+
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-btn{
+  flex:1;height:48px;border-radius:12px;border:none;font-family:inherit;font-size:0.9rem;font-weight:500;cursor:pointer;
+}
+.modal-btn.cancel{background:var(--surface);color:var(--text-muted);border:1px solid var(--border)}
+.modal-btn.confirm{background:var(--accent);color:#fff}
+.modal-btn:active{opacity:0.85}
+
+/* ── 导航栏 ──── */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+  display:flex;justify-content:space-around;align-items:center;
+  background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  z-index:200;
+}
+.nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;text-decoration:none;color:var(--text-muted);font-size:0.6rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+.nav-tab .nav-icon{font-size:18px;line-height:1}
+.nav-tab.active{color:var(--accent)}
+.nav-tab:active{opacity:0.7}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back-btn" onclick="location.href='home.html'">← 返回</button>
+  <div class="title">💊 用药提醒</div>
+  <div style="width:48px"></div>
+</div>
+
+<div id="reminder-list">
+  <div class="empty-state" id="empty-state">还没有添加提醒<br>点下方按钮添加第一个</div>
+</div>
+
+<div class="add-btn-wrap"><button class="add-btn" id="add-btn">+ 添加提醒</button></div>
+
+<div class="overlay hidden" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-title" id="modal-title">添加提醒</div>
+    <div class="modal-field">
+      <div class="modal-label">药品 / 保健品名称</div>
+      <input class="text-input" id="m-name" placeholder="例如：钙片">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">每天几次</div>
+      <div class="option-row" id="freq-options">
+        <button class="option-btn" data-value="1">1次</button>
+        <button class="option-btn selected" data-value="2">2次</button>
+        <button class="option-btn" data-value="3">3次</button>
+      </div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">几点服用</div>
+      <div id="time-inputs">
+        <div class="time-row"><span style="font-size:0.75rem;color:var(--text-muted);width:40px">第1次</span><input class="text-input" type="time" value="08:00" data-idx="0"></div>
+        <div class="time-row"><span style="font-size:0.75rem;color:var(--text-muted);width:40px">第2次</span><input class="text-input" type="time" value="21:00" data-idx="1"></div>
+      </div>
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">备注（可选）</div>
+      <input class="text-input" id="m-note" placeholder="例如：饭后服用">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" id="modal-cancel">取消</button>
+      <button class="modal-btn confirm" id="modal-confirm">保存</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+  <a class="nav-tab" href="index.html" onclick="sessionStorage.setItem('from_home','1')"><span class="nav-icon">🌙</span>聊天</a>
+  <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+  <a class="nav-tab" href="history.html"><span class="nav-icon">📅</span>打卡</a>
+  <span class="nav-tab active"><span class="nav-icon">💊</span>用药</span>
+</nav>
+
+<script>
+const STORAGE_KEY = 'stacy_reminders';
+const NOTIF_GRANTED_KEY = 'stacy_notif_granted';
+
+function loadReminders() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveReminders(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  renderList();
+  scheduleAll();
+}
+
+let editingId = null;
+
+// ── 渲染列表 ──────────────────────────────
+function renderList() {
+  const list = loadReminders();
+  const el = document.getElementById('reminder-list');
+  const empty = document.getElementById('empty-state');
+
+  if (list.length === 0) { empty.style.display = ''; el.querySelectorAll('.reminder-card').forEach(c => c.remove()); return; }
+  empty.style.display = 'none';
+
+  // 更新现有卡片 + 添加新卡片
+  el.querySelectorAll('.reminder-card').forEach(c => c.remove());
+
+  list.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'reminder-card' + (r.enabled === false ? ' disabled' : '');
+    card.id = 'rem-' + r.id;
+    card.innerHTML = `
+      <div class="reminder-icon">💊</div>
+      <div class="reminder-body">
+        <div class="reminder-name">${esc(r.name)}</div>
+        <div class="reminder-times">每天 ${(r.times||[]).join(' · ')}</div>
+        ${r.note ? `<div class="reminder-note">${esc(r.note)}</div>` : ''}
+      </div>
+      <button class="switch ${r.enabled !== false ? 'on' : ''}" data-id="${r.id}" data-action="toggle"></button>
+      <div class="reminder-actions">
+        <button class="icon-btn" data-id="${r.id}" data-action="edit">✏️</button>
+        <button class="icon-btn danger" data-id="${r.id}" data-action="delete">🗑</button>
+      </div>
+    `;
+    el.appendChild(card);
+  });
+}
+
+// ── 事件代理 ──────────────────────────────
+document.getElementById('reminder-list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const reminders = loadReminders();
+  const idx = reminders.findIndex(r => r.id === id);
+  if (idx < 0) return;
+
+  if (action === 'toggle') {
+    reminders[idx].enabled = !(reminders[idx].enabled !== false);
+    saveReminders(reminders);
+  } else if (action === 'delete') {
+    if (confirm('删除「' + reminders[idx].name + '」的提醒？')) {
+      reminders.splice(idx, 1);
+      saveReminders(reminders);
+    }
+  } else if (action === 'edit') {
+    openModal(reminders[idx]);
+  }
+});
+
+// ── 弹窗 ──────────────────────────────────
+function openModal(reminder) {
+  editingId = reminder ? reminder.id : null;
+  document.getElementById('modal-title').textContent = reminder ? '编辑提醒' : '添加提醒';
+  document.getElementById('modal-overlay').classList.remove('hidden');
+
+  // 预填 medication
+  const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
+  document.getElementById('m-name').value = reminder ? reminder.name : (profile.medication || '');
+  document.getElementById('m-note').value = reminder ? (reminder.note || '') : '';
+
+  const times = reminder ? (reminder.times || ['08:00']) : ['08:00', '21:00'];
+  updateFreqButtons(times.length);
+  renderTimeInputs(times);
+}
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  editingId = null;
+});
+
+document.getElementById('modal-confirm').addEventListener('click', () => {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) return;
+
+  const times = [...document.querySelectorAll('#time-inputs input')].map(inp => inp.value).filter(Boolean);
+  const note = document.getElementById('m-note').value.trim();
+  const reminders = loadReminders();
+
+  if (editingId) {
+    const idx = reminders.findIndex(r => r.id === editingId);
+    if (idx >= 0) {
+      reminders[idx].name = name;
+      reminders[idx].times = times;
+      reminders[idx].note = note;
+    }
+  } else {
+    reminders.push({
+      id: 'r' + Date.now(),
+      name, times, note,
+      enabled: true
+    });
+  }
+
+  saveReminders(reminders);
+  document.getElementById('modal-overlay').classList.add('hidden');
+  editingId = null;
+
+  // 请求通知权限
+  requestNotificationPermission();
+});
+
+// ── 频次切换 ──────────────────────────────
+document.getElementById('freq-options').addEventListener('click', e => {
+  const btn = e.target.closest('.option-btn');
+  if (!btn) return;
+  document.querySelectorAll('#freq-options .option-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const n = parseInt(btn.dataset.value);
+  const times = [...document.querySelectorAll('#time-inputs input')].map(inp => inp.value);
+  updateFreqButtons(n);
+  renderTimeInputs(times.length >= n ? times.slice(0, n) : padTimes(times, n));
+});
+
+function updateFreqButtons(n) {
+  document.querySelectorAll('#freq-options .option-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.value) === n);
+  });
+}
+
+function padTimes(existing, n) {
+  const defaults = ['08:00', '13:00', '21:00'];
+  const result = existing.slice(0, n);
+  while (result.length < n) result.push(defaults[result.length] || '09:00');
+  return result;
+}
+
+function renderTimeInputs(times) {
+  const container = document.getElementById('time-inputs');
+  container.innerHTML = '';
+  times.forEach((t, i) => {
+    container.innerHTML += `<div class="time-row"><span style="font-size:0.75rem;color:var(--text-muted);width:40px">第${i+1}次</span><input class="text-input" type="time" value="${t}" data-idx="${i}"></div>`;
+  });
+}
+
+// ── 按钮 ──────────────────────────────────
+document.getElementById('add-btn').addEventListener('click', () => openModal(null));
+
+// ── 通知 ──────────────────────────────────
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') { localStorage.setItem(NOTIF_GRANTED_KEY, '1'); return; }
+  if (Notification.permission === 'denied') return;
+  const granted = await Notification.requestPermission();
+  if (granted === 'granted') localStorage.setItem(NOTIF_GRANTED_KEY, '1');
+}
+
+function scheduleAll() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const reminders = loadReminders();
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+
+  reminders.forEach(r => {
+    if (r.enabled === false) return;
+    (r.times || []).forEach(t => {
+      const [h, m] = t.split(':').map(Number);
+      const target = new Date(today + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00');
+      const delay = target - now;
+      if (delay <= 0) return; // 已过期
+
+      setTimeout(() => {
+        try {
+          new Notification('💊 该吃药了', {
+            body: (r.name || '药品') + (r.note ? ' · ' + r.note : ''),
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="80">💊</text></svg>',
+            tag: r.id + '-' + t,
+          });
+        } catch {}
+      }, delay);
+      console.log('[REMIND] 已设置:', r.name, t, '延迟', Math.round(delay/1000/60), '分钟');
+    });
+  });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ── 初始化 ──────────────────────────────────
+renderList();
+requestNotificationPermission().then(scheduleAll);
+
+// 点击弹窗背景关闭
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('modal-overlay').classList.add('hidden');
+    editingId = null;
+  }
+});
+</script>
+</body>
+</html>

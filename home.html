@@ -108,6 +108,20 @@
     }
     .task-done-btn.done{color:rgba(34,197,94,0.5);cursor:default}
 
+    /* ── 提醒入口卡片 ──── */
+    .reminder-entry{
+      background:linear-gradient(135deg,rgba(59,130,246,0.07),rgba(37,99,235,0.04));
+      border:1px solid rgba(59,130,246,0.12);border-radius:var(--radius);padding:12px 16px;margin-bottom:12px;
+      display:flex;align-items:center;gap:10px;cursor:pointer;text-decoration:none;color:inherit;
+      transition:border-color 0.2s;
+    }
+    .reminder-entry:active{background:rgba(59,130,246,0.06)}
+    .reminder-entry .re-icon{font-size:20px}
+    .reminder-entry .re-info{flex:1;line-height:1.3}
+    .reminder-entry .re-label{font-size:0.7rem;color:#60a5fa;letter-spacing:1px;font-weight:500}
+    .reminder-entry .re-preview{font-size:0.72rem;color:var(--text-muted)}
+    .reminder-entry .re-arrow{font-size:16px;color:var(--text-muted)}
+
     /* ── 周报入口 ─────── */
     .weekly-banner{
       background:linear-gradient(135deg,rgba(139,92,246,0.07),rgba(99,102,241,0.04));
@@ -186,6 +200,15 @@
   <div class="task-hint" id="task-hint"></div>
 </div>
 
+
+	<a class="reminder-entry" href="reminder.html" id="reminder-entry">
+	  <span class="re-icon">💊</span>
+	  <div class="re-info">
+	    <div class="re-label">用药提醒</div>
+	    <div class="re-preview" id="reminder-preview">设置提醒</div>
+	  </div>
+	  <span class="re-arrow">→</span>
+	</a>
 <div class="cta-wrap">
   <button class="cta-btn" id="cta-btn">🌙 和 Stacy 说说话</button>
 </div>
@@ -341,8 +364,11 @@ function e(s){const d=document.createElement('div');d.textContent=s;return d.inn
   const p=JSON.parse(localStorage.getItem('stacy_profile')||'null');if(!p||!p.name){location.replace('onboarding.html');return}
   const h=new Date().getHours();let g='早上好';if(h>=12&&h<18)g='下午好';if(h>=18)g='晚上好';
   document.getElementById('greeting').innerHTML=`${g}，<span class="name">${e(p.name)}</span>`;
-  renderCheckin();renderTask();renderLogs();renderWeeklyBanner();
+  renderCheckin();renderTask();renderLogs();renderWeeklyBanner();renderReminderPreview();
 })();
+function renderReminderPreview(){
+  try { const r=JSON.parse(localStorage.getItem('stacy_reminders')||'[]'); const active=r.filter(x=>x.enabled!==false); document.getElementById('reminder-preview').textContent=active.length?active.length+'个提醒已开启':(r.length?r.length+'个提醒（已关闭）':'设置提醒'); } catch {}
+}
 document.getElementById('cta-btn').addEventListener('click',()=>{sessionStorage.setItem('from_home','1');location.href='index.html';});
 document.getElementById('profile-btn').addEventListener('click',()=>{location.href='profile.html';});
 </script>
