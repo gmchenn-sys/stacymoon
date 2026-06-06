@@ -51,6 +51,8 @@
       70%  { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
       100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
     }
+    .first-chat-hint{text-align:center;font-size:0.7rem;color:rgba(255,255,255,0.25);padding:4px 0 0;display:none}
+    .first-chat-hint.show{display:block}
     /* ── 底部导航栏 ──────── */
     .bottom-nav{
       position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
@@ -108,16 +110,74 @@
   <main class="chat-box" id="chat-box">
     <div class="bubble-row ai">
       <span class="avatar">🌙</span>
-      <div class="bubble ai-bubble" id="welcome-bubble">妈妈，我在。有什么不舒服，或者心里有什么想说的，都可以告诉我。🌙</div>
+      <div class="bubble ai-bubble" id="welcome-bubble">我在，有什么想说的都可以告诉我。🌙</div>
       <script>
         (function() {
-          try {
-            const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
-            if (profile && profile.name) {
-              document.getElementById('welcome-bubble').textContent =
-                profile.name + '，我在。有什么不舒服，或者心里有什么想说的，都可以告诉我。🌙';
+          var bubble = document.getElementById('welcome-bubble');
+          var profile = {};
+          try { profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}'); } catch {}
+          var name = profile.name || '';
+          var prefix = name ? name + '，' : '';
+
+          // ── 优先级1: 有昨天打卡数据 ──
+          var logs = [];
+          try { logs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]'); } catch {}
+          var yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+          var yesterdayStr = yesterday.toISOString().slice(0, 10);
+          var yesterdayLog = logs.find(function(l) { return l.date === yesterdayStr; });
+
+          var msg = '';
+
+          if (yesterdayLog) {
+            if (yesterdayLog.sleep_score && yesterdayLog.sleep_score <= 2) {
+              msg = '昨晚睡得不太好？今天感觉怎么样，有没有好一点点？';
+            } else if (yesterdayLog.mood === '😢' || yesterdayLog.mood === '😤') {
+              msg = '昨天心情有些低落，今天好些了吗？我在这里陪你。';
+            } else if (yesterdayLog.symptoms && yesterdayLog.symptoms.length > 0 && !(yesterdayLog.symptoms.length === 1 && yesterdayLog.symptoms[0] === 'none')) {
+              var labels = { hot_flash:'潮热', night_sweat:'夜间出汗', poor_sleep:'睡眠', mood_swing:'情绪波动', joint_pain:'关节不舒服', brain_fog:'脑雾' };
+              var sympNames = yesterdayLog.symptoms.filter(function(s) { return s !== 'none'; }).map(function(s) { return labels[s] || s; });
+              msg = '昨天' + sympNames.slice(0, 2).join('、') + '有没有好一点？今天身体感觉怎么样？';
+            } else {
+              msg = '今天身体感觉怎么样？';
             }
-          } catch {}
+          }
+
+          // ── 优先级2: 有档案症状 ──
+          if (!msg && Array.isArray(profile.symptoms) && profile.symptoms.length > 0 && !(profile.symptoms.length === 1 && profile.symptoms[0] === 'none')) {
+            var symptomPrompts = {
+              poor_sleep: '最近睡眠怎么样？有没有睡得好一点？',
+              hot_flash: '今天有没有觉得燥热？',
+              night_sweat: '最近夜间出汗有没有好一点？',
+              mood_swing: '今天心情怎么样？',
+              joint_pain: '关节这几天还疼吗？',
+              brain_fog: '最近脑子清楚些了吗？'
+            };
+            var valid = profile.symptoms.filter(function(s) { return s !== 'none' && symptomPrompts[s]; });
+            if (valid.length > 0) {
+              var pick = valid[Math.floor(Math.random() * valid.length)];
+              msg = symptomPrompts[pick] || '';
+            }
+          }
+
+          // ── 优先级3: 固定文案 ──
+          if (!msg) {
+            var pool = ['今天身体感觉怎么样？', '有什么想和我说的吗？', '今天过得怎么样？'];
+            msg = pool[Math.floor(Math.random() * pool.length)];
+          }
+
+          // 兜底
+          if (!msg) msg = '我在，有什么想说的都可以告诉我。🌙';
+
+          bubble.textContent = prefix + msg;
+        })();
+      </script>
+      <script>
+        // 首次聊天提示，显示一次后不再出现
+        (function() {
+          if (!localStorage.getItem('stacy_first_chat')) {
+            localStorage.setItem('stacy_first_chat', '1');
+            document.getElementById('first-chat-hint').classList.add('show');
+          }
         })();
       </script>
     </div>
@@ -143,6 +203,7 @@
       >
       <button id="send-btn" class="send-btn">发送</button>
     </div>
+    <p class="first-chat-hint" id="first-chat-hint">可以直接说话，也可以打字 👆</p>
   </footer>
 
   <nav class="bottom-nav">
