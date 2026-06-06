@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Stacy Moon · Admin</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:system-ui,-apple-system,sans-serif;background:#0a0a0f;color:#e4e4e7;
+  max-width:600px;margin:0 auto;padding:24px 16px 80px;
+  -webkit-font-smoothing:antialiased;
+}
+h1{font-size:1.2rem;color:#fff;margin-bottom:6px}
+.subtitle{font-size:0.75rem;color:#71717a;margin-bottom:24px}
+
+/* ── 密码弹窗 ──── */
+.login-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;
+  justify-content:center;z-index:999;
+}
+.login-card{background:#12121a;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:32px 24px;width:90%;max-width:320px;text-align:center}
+.login-card h2{color:#fff;font-size:1rem;margin-bottom:20px}
+.login-card input{
+  width:100%;height:48px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:#1c1c24;
+  color:#fff;font-family:inherit;font-size:1rem;text-align:center;outline:none;margin-bottom:12px;
+}
+.login-card button{
+  width:100%;height:44px;border-radius:10px;border:none;background:#F97316;color:#fff;
+  font-family:inherit;font-size:0.9rem;font-weight:500;cursor:pointer;
+}
+.login-err{color:#EF4444;font-size:0.75rem;margin-bottom:10px;min-height:18px}
+
+/* ── 表单 ──── */
+.card{
+  background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:14px;
+  padding:20px;margin-bottom:16px;
+}
+.card-title{font-size:0.75rem;color:#71717a;letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.card-title .dot{width:5px;height:5px;border-radius:50%;background:#F97316}
+.form-row{display:flex;gap:10px;margin-bottom:12px;align-items:center}
+.form-row input{
+  height:42px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:#1c1c24;
+  color:#fff;font-family:inherit;font-size:0.85rem;padding:0 12px;outline:none;
+}
+.form-row input:focus{border-color:#F97316}
+.form-row input::placeholder{color:#444}
+.btn{
+  height:42px;border-radius:10px;border:none;font-family:inherit;font-size:0.85rem;font-weight:500;
+  cursor:pointer;padding:0 18px;white-space:nowrap;transition:opacity 0.15s;
+}
+.btn:active{opacity:0.85}
+.btn-primary{background:#F97316;color:#fff}
+.btn-secondary{background:#1c1c24;color:#71717a;border:1px solid rgba(255,255,255,0.06)}
+.btn-danger{background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.2)}
+.btn-small{height:32px;font-size:0.72rem;padding:0 12px}
+
+/* ── 表格 ──── */
+.table{width:100%;border-collapse:collapse;margin-top:12px}
+.table th{font-size:0.65rem;color:#71717a;text-align:left;padding:8px 6px;border-bottom:1px solid rgba(255,255,255,0.04);letter-spacing:0.5px}
+.table td{font-size:0.78rem;padding:10px 6px;border-bottom:1px solid rgba(255,255,255,0.03);color:#e4e4e7}
+.code-mono{font-family:'SF Mono',monospace;color:#F97316;font-size:0.82rem;letter-spacing:0.5px}
+.badge{padding:2px 8px;border-radius:10px;font-size:0.65rem;font-weight:500}
+.badge-used{background:rgba(239,68,68,0.1);color:#EF4444}
+.badge-new{background:rgba(34,197,94,0.1);color:#22c55e}
+
+.result-box{background:#1c1c24;border-radius:10px;padding:14px;margin-top:12px;max-height:200px;overflow-y:auto;display:none}
+.result-box.show{display:block}
+.result-box .line{font-size:0.78rem;padding:4px 0;display:flex;align-items:center;justify-content:space-between;font-family:'SF Mono',monospace;border-bottom:1px solid rgba(255,255,255,0.03)}
+.result-box .copy-btn{background:none;border:none;color:#F97316;cursor:pointer;font-size:0.72rem}
+.res-count{font-size:0.7rem;color:#71717a;margin-top:8px}
+.res-error{font-size:0.72rem;color:#EF4444;margin-top:8px}
+
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="login-overlay">
+  <div class="login-card">
+    <h2>🔐 Admin</h2>
+    <input type="password" id="pwd-input" placeholder="输入管理密码" autocomplete="off">
+    <div class="login-err" id="login-err"></div>
+    <button id="login-btn">进入</button>
+  </div>
+</div>
+
+<div id="main-content" class="hidden">
+  <h1>Stacy Moon Admin</h1>
+  <div class="subtitle">邀请码管理</div>
+
+  <!-- ── 生成邀请码 ── -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>生成邀请码</div>
+    <div class="form-row">
+      <input type="number" id="gen-count" value="5" min="1" max="50" placeholder="数量(1-50)" style="width:80px">
+      <input type="text" id="gen-webhook" placeholder="飞书 Webhook URL（可选）" style="flex:1">
+      <button class="btn btn-primary" id="gen-btn">生成</button>
+    </div>
+    <div class="result-box" id="gen-result"></div>
+    <div class="res-count hidden" id="gen-count-msg"></div>
+    <div class="res-error hidden" id="gen-error"></div>
+  </div>
+
+  <!-- ── 现有邀请码列表 ── -->
+  <div class="card">
+    <div class="card-title">
+      <span class="dot"></span>现有邀请码
+      <span style="flex:1"></span>
+      <button class="btn btn-secondary btn-small" id="copy-all-btn">📋 复制全部未使用</button>
+      <button class="btn btn-secondary btn-small" id="refresh-btn">🔄 刷新</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table">
+        <thead><tr><th>邀请码</th><th>状态</th><th>Webhook</th><th>创建时间</th><th></th></tr></thead>
+        <tbody id="list-tbody"><tr><td colspan="5" style="color:#71717a;text-align:center;padding:20px">加载中…</td></tr></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:0.68rem;color:#71717a" id="list-count"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://gqahwfuuvoumfxdhfugt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_EBDC3H5J_WdUSWXmZwndJg_GsGBHN2S';
+const ADMIN_PWD = 'stacymoon2026';
+
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json'
+};
+
+// ── 密码校验 ──────────────────────────────
+document.getElementById('login-btn').addEventListener('click', () => {
+  if (document.getElementById('pwd-input').value === ADMIN_PWD) {
+    document.getElementById('login-overlay').classList.add('hidden');
+    document.getElementById('main-content').classList.remove('hidden');
+    loadList();
+  } else {
+    document.getElementById('login-err').textContent = '密码错误';
+  }
+});
+document.getElementById('pwd-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('login-btn').click();
+});
+
+function uuid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function randomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let s = '';
+  for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return 'moon' + s;
+}
+
+// ── 生成邀请码 ────────────────────────────
+document.getElementById('gen-btn').addEventListener('click', async () => {
+  const count = Math.max(1, Math.min(50, parseInt(document.getElementById('gen-count').value) || 5));
+  const webhook = document.getElementById('gen-webhook').value.trim();
+  const box = document.getElementById('gen-result');
+  const msg = document.getElementById('gen-count-msg');
+  const err = document.getElementById('gen-error');
+
+  box.innerHTML = ''; box.classList.remove('show');
+  msg.classList.add('hidden'); err.classList.add('hidden');
+  document.getElementById('gen-btn').disabled = true;
+  document.getElementById('gen-btn').textContent = '生成中…';
+
+  const success = [];
+  const failed = [];
+  for (let i = 0; i < count; i++) {
+    const code = randomCode();
+    const payload = {
+      code: code,
+      feishu_webhook: webhook || null,
+      created_at: new Date().toISOString()
+    };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/invite_codes`, {
+        method: 'POST',
+        headers: { ...HEADERS, 'Prefer': 'return=minimal' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        success.push(code);
+      } else {
+        const errText = await res.text();
+        console.warn('Insert failed:', errText);
+        failed.push(code);
+      }
+    } catch (e) {
+      console.warn('Network error:', e);
+      failed.push(code);
+    }
+  }
+
+  document.getElementById('gen-btn').disabled = false;
+  document.getElementById('gen-btn').textContent = '生成';
+
+  if (success.length > 0) {
+    box.classList.add('show');
+    box.innerHTML = success.map(c => `<div class="line"><span>${c}</span><button class="copy-btn" onclick="copyOne('${c}',this)">复制</button></div>`).join('');
+    msg.classList.remove('hidden');
+    msg.textContent = `已生成 ${success.length} 个` + (failed.length ? `（${failed.length} 失败）` : '');
+  }
+  if (failed.length > 0) {
+    err.classList.remove('hidden');
+    err.textContent = `${failed.length} 个生成失败，可能是 Supabase 权限不足，请检查 RLS 策略`;
+  }
+
+  if (success.length > 0) loadList();
+});
+
+// ── 加载列表 ──────────────────────────────
+async function loadList() {
+  const tbody = document.getElementById('list-tbody');
+  const countEl = document.getElementById('list-count');
+  tbody.innerHTML = '<tr><td colspan="5" style="color:#71717a;text-align:center;padding:20px">加载中…</td></tr>';
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/invite_codes?select=*&order=created_at.desc&limit=100`, { headers: HEADERS });
+    const data = await res.json();
+
+    if (!Array.isArray(data) || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:#71717a;text-align:center;padding:20px">暂无邀请码</td></tr>';
+      countEl.textContent = '';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    data.forEach(row => {
+      const hasWebhook = row.feishu_webhook && row.feishu_webhook.length > 5;
+      const timeStr = row.created_at ? new Date(row.created_at).toLocaleDateString('zh-CN') : '未知';
+      // 判断是否被使用：查 stacy_invite_code 关联？这里简化为有 webhook 的行显示"新"标签
+      // 实际上需要查是否有用户绑定了这个邀请码，但 Supabase 权限有限
+      // 先显示"新"标签，后续可通过 RLS 关联查询
+      const used = row.used === true;
+      const badge = used ? '<span class="badge badge-used">已使用</span>' : '<span class="badge badge-new">未使用</span>';
+
+      tbody.innerHTML += `<tr>
+        <td><span class="code-mono">${row.code}</span></td>
+        <td>${badge}</td>
+        <td style="font-size:0.68rem;color:#71717a;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${hasWebhook ? '✅' : '--'}</td>
+        <td style="font-size:0.7rem;color:#71717a">${timeStr}</td>
+        <td><button class="btn btn-danger btn-small" onclick="deleteCode('${row.code}',this)">删除</button></td>
+      </tr>`;
+    });
+
+    countEl.textContent = `共 ${data.length} 个邀请码`;
+    window._allCodes = data;
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#EF4444;text-align:center;padding:20px">加载失败: ' + (e.message||'网络错误') + '</td></tr>';
+  }
+}
+
+// ── 删除 ─────────────────────────────────
+async function deleteCode(code, btn) {
+  if (!confirm(`删除邀请码 ${code}？`)) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/invite_codes?code=eq.${encodeURIComponent(code)}`, {
+      method: 'DELETE',
+      headers: { ...HEADERS, 'Prefer': 'return=minimal' }
+    });
+    if (res.ok) {
+      loadList();
+    } else {
+      alert('删除失败，请检查 Supabase 权限');
+    }
+  } catch (e) { alert('删除失败: ' + e.message); }
+  btn.disabled = false; btn.textContent = '删除';
+}
+
+// ── 复制 ─────────────────────────────────
+function copyOne(code, btn) {
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = '✓';
+    setTimeout(() => btn.textContent = '复制', 1200);
+  }).catch(() => alert('复制失败'));
+}
+
+document.getElementById('copy-all-btn').addEventListener('click', async () => {
+  const all = window._allCodes || [];
+  const unused = all.filter(r => !r.used).map(r => r.code);
+  if (unused.length === 0) { alert('没有未使用的邀请码'); return; }
+  try {
+    await navigator.clipboard.writeText(unused.join('\n'));
+    const btn = document.getElementById('copy-all-btn');
+    btn.textContent = `✅ 已复制 ${unused.length} 个`;
+    setTimeout(() => btn.textContent = '📋 复制全部未使用', 2000);
+  } catch { alert('复制失败，请手动复制'); }
+});
+
+document.getElementById('refresh-btn').addEventListener('click', loadList);
+</script>
+</body>
+</html>
