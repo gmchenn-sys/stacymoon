@@ -118,15 +118,26 @@ function appendLoading() {
   const div = document.createElement('div');
   div.className = 'bubble-row ai';
   div.id = id;
-  div.innerHTML = `<span class="avatar">🌙</span><div class="bubble ai-bubble loading-bubble">Stacy 正在回复…</div>`;
+  div.innerHTML = `<span class="avatar breathing">🌙</span><div class="bubble ai-bubble typing-bubble">Stacy 正在想... <span class="typing-dots"><span>●</span><span>●</span><span>●</span></span><div class="slow-hint" id="slow-hint-${id}">网络有点慢，再等一下～</div></div>`;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
+
+  // 10s 后显示慢网络提示
+  const tid = setTimeout(() => {
+    const hint = document.getElementById('slow-hint-' + id);
+    if (hint) hint.classList.add('show');
+  }, 10000);
+  div._slowTimer = tid;
+
   return id;
 }
 
 function removeLoading(id) {
   const el = document.getElementById(id);
-  if (el) el.remove();
+  if (el) {
+    if (el._slowTimer) clearTimeout(el._slowTimer);
+    el.remove();
+  }
 }
 
 // ── 流式气泡（AI 边生成边显示）──────────────────────
@@ -134,14 +145,20 @@ function createStreamingBubble() {
   const box = document.getElementById('chat-box');
   const div = document.createElement('div');
   div.className = 'bubble-row ai';
-  div.innerHTML = '<span class="avatar">🌙</span><div class="bubble ai-bubble"></div>';
+  div.innerHTML = '<span class="avatar breathing">🌙</span><div class="bubble ai-bubble typing-bubble">Stacy 正在想... <span class="typing-dots"><span>●</span><span>●</span><span>●</span></span></div>';
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
+  div._streamStarted = false;
   return div;
 }
 
 function updateStreamingBubble(el, text) {
   const bubble = el.querySelector('.ai-bubble');
+  if (!el._streamStarted) {
+    el._streamStarted = true;
+    bubble.className = 'bubble ai-bubble';
+    el.querySelector('.avatar')?.classList.remove('breathing');
+  }
   if (bubble) bubble.textContent = text;
   const box = document.getElementById('chat-box');
   box.scrollTop = box.scrollHeight;

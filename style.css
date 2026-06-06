@@ -166,35 +166,6 @@ body {
   border-radius: var(--radius) 0 var(--radius) var(--radius);
 }
 
-/* ── Loading Bubble ────────────────────── */
-
-.loading-bubble {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.loading-bubble::before {
-  content: '';
-  display: inline-flex;
-  gap: 4px;
-  /* 用三个圆点表示加载中 — 通过 dotted-symbol 模拟 */
-  width: 24px;
-  height: 8px;
-  background:
-    radial-gradient(circle at 4px 50%, var(--text-muted) 1.8px, transparent 2px),
-    radial-gradient(circle at 12px 50%, var(--text-muted) 1.8px, transparent 2px),
-    radial-gradient(circle at 20px 50%, var(--text-muted) 1.8px, transparent 2px);
-  animation: dotPulse 1.4s ease-in-out infinite;
-}
-
-@keyframes dotPulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
 /* ── Input Area ────────────────────────── */
 
 .input-area {

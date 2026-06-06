@@ -63,6 +63,17 @@
     .retry-btn:active{background:rgba(255,255,255,0.12)}
     .retry-primary{background:rgba(249,115,22,0.15);border-color:rgba(249,115,22,0.3);color:var(--accent)}
     .retry-primary:active{background:rgba(249,115,22,0.25)}
+    /* ── 加载动画 ──────── */
+    .typing-bubble{color:var(--text-muted);font-size:0.82rem;display:flex;align-items:center;gap:4px}
+    .typing-dots{display:inline-flex;gap:2px}
+    .typing-dots span{animation:dotBounce 1.2s ease-in-out infinite;opacity:0.2;font-size:0.7rem;line-height:1}
+    .typing-dots span:nth-child(2){animation-delay:0.2s}
+    .typing-dots span:nth-child(3){animation-delay:0.4s}
+    @keyframes dotBounce{0%,100%{opacity:0.2}50%{opacity:1}}
+    .avatar.breathing{animation:avatarBreathe 2s ease-in-out infinite}
+    @keyframes avatarBreathe{0%,100%{opacity:0.6}50%{opacity:1}}
+    .slow-hint{font-size:0.65rem;color:var(--text-muted);margin-top:6px;opacity:0.6;display:none}
+    .slow-hint.show{display:block}
     /* ── 底部导航栏 ──────── */
     .bottom-nav{
       position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
