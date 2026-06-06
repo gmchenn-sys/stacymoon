@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Stacy Moon · 就医报告</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--accent:#F97316;--text:#e4e4e7;--text-muted:#71717a;--border:rgba(255,255,255,0.06)}
+body{
+  font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+  max-width:420px;margin:0 auto;min-height:100dvh;padding:0 16px 90px;
+  padding-top:max(12px,env(safe-area-inset-top));
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── 顶部栏 ─────── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 16px}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:4px;font-family:inherit}
+.title{font-size:1rem;font-weight:600;color:#fff}
+
+/* ── 报告卡片 ───── */
+.report-card{
+  background:#fafaf8;color:#2c2c2c;border-radius:12px;padding:24px 20px;margin-bottom:16px;
+  box-shadow:0 2px 12px rgba(0,0,0,0.15);line-height:1.7;font-size:0.85rem;
+}
+.report-title{font-size:1.1rem;font-weight:700;text-align:center;margin-bottom:4px;color:#1a1a1a}
+.report-time{font-size:0.7rem;color:#888;text-align:center;margin-bottom:20px}
+.report-divider{border:none;border-top:1px solid #e0e0e0;margin:16px 0}
+.report-section-title{font-size:0.75rem;font-weight:700;color:#555;letter-spacing:1.5px;margin-bottom:10px;margin-top:8px}
+.report-line{font-size:0.82rem;margin-bottom:4px;color:#333}
+.report-list{list-style:none;padding:0;color:#333}
+.report-list li{padding:3px 0;font-size:0.82rem}
+.report-list li::before{content:'· ';color:var(--accent)}
+.report-na{color:#999;font-style:italic;font-size:0.8rem}
+.report-disclaimer{font-size:0.68rem;color:#999;line-height:1.6;margin-top:8px}
+
+/* ── 底部操作 ───── */
+.action-wrap{padding:0 0 16px;display:flex;gap:10px}
+.copy-btn{
+  flex:1;height:44px;border-radius:12px;border:none;background:var(--accent);color:#fff;
+  font-family:inherit;font-size:0.9rem;font-weight:500;cursor:pointer;
+  transition:opacity 0.2s,transform 0.15s;
+}
+.copy-btn:active{opacity:0.85;transform:scale(0.97)}
+.copy-btn.done{background:#22c55e}
+.screenshot-hint{font-size:0.68rem;color:var(--text-muted);text-align:center;padding:4px 0 20px;line-height:1.5}
+
+/* ── 底部导航栏 ──── */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+  display:flex;justify-content:space-around;align-items:center;
+  background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  z-index:200;
+}
+.nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 20px;text-decoration:none;color:var(--text-muted);font-size:0.65rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+.nav-tab .nav-icon{font-size:20px;line-height:1}
+.nav-tab:active{opacity:0.7}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back-btn" onclick="location.href='profile.html'">← 返回</button>
+  <div class="title">📋 就医报告</div>
+  <div style="width:48px"></div>
+</div>
+
+<div class="report-card" id="report-card"></div>
+
+<div class="action-wrap">
+  <button class="copy-btn" id="copy-btn">📋 复制全文</button>
+</div>
+<div class="screenshot-hint">💡 也可以直接截图保存，发给医生</div>
+
+<nav class="bottom-nav">
+  <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+  <a class="nav-tab" href="index.html" onclick="sessionStorage.setItem('from_home','1')"><span class="nav-icon">🌙</span>聊天</a>
+  <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+</nav>
+
+<script>
+// ── 数据读取 ──────────────────────────────
+const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
+const dailyLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+const chatLogs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+const PERIOD_MAP = { regular:'规律', irregular:'开始不规律', stopped:'已停经' };
+const EXERCISE_MAP = { frequent:'经常（每周3次以上）', occasional:'偶尔（每周1-2次）', rare:'很少或没有' };
+const DIET_MAP = { none:'没有特别', vegetarian:'素食', low_carb:'不吃碳水', intermittent:'16+8间歇断食', other:'其他' };
+
+const now = new Date();
+const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+// ── 生成报告纯文本 ──────────────────────────
+let report = '';
+
+function line(s) { report += s + '\n'; }
+function hr() { report += '\n'; }
+
+line('就医参考摘要');
+line(`生成时间：${dateStr}`);
+line('');
+line('━━ 基本信息 ━━');
+line(`姓名：${profile.name || '未填写'}，${profile.age ? profile.age + '岁' : '未填写'}`);
+
+// BMI
+let bmiStr = '未填写';
+if (profile.height && profile.weight) {
+  const h = parseFloat(profile.height) / 100;
+  const w = parseFloat(profile.weight);
+  if (h > 0 && w > 0) {
+    const bmi = (w / (h * h)).toFixed(1);
+    bmiStr = `BMI：${bmi} (${bmi < 18.5 ? '偏瘦' : bmi < 24 ? '正常' : bmi < 28 ? '偏重' : '肥胖'})`;
+  }
+}
+line(`身高体重：${profile.height ? profile.height + 'cm' : '--'} / ${profile.weight ? profile.weight + 'kg' : '--'}，${bmiStr}`);
+
+hr();
+line('━━ 月经情况 ━━');
+line(`当前状态：${PERIOD_MAP[profile.period_status] || profile.period_status || '未填写'}`);
+if (profile.period_status === 'stopped' && profile.period_stopped_howlong) {
+  line(`停经时长：${profile.period_stopped_howlong}`);
+}
+
+hr();
+line('━━ 本人描述的主要不适 ━━');
+
+const KEYWORDS = {
+  '睡眠': ['睡眠','失眠','睡不好','睡不着','夜醒','多梦','早醒'],
+  '潮热': ['潮热','潮红','发热','出汗','燥热','一阵热'],
+  '出汗': ['出汗','盗汗','夜间出汗','冒汗'],
+  '情绪波动': ['烦躁','情绪','低落','抑郁','焦虑','想哭','脾气','发火','易怒','难过'],
+  '疲惫': ['疲惫','没力气','乏力','累','没劲','疲劳','困'],
+  '关节不适': ['关节','关节疼','关节痛','膝盖','腰疼','背痛','肩膀','手腕','僵硬'],
+  '头痛': ['头痛','头疼','偏头痛'],
+  '心悸': ['心悸','心跳','心慌','胸闷'],
+  '脑雾记忆': ['脑雾','记忆','记不住','忘事','迷糊','走神','注意力'],
+  '阴道干涩': ['干涩','阴道','干燥'],
+};
+const keywordCounts = {};
+for (const [label, words] of Object.entries(KEYWORDS)) {
+  let count = 0;
+  for (const log of chatLogs) {
+    const msg = (log.userMessage || log.user_message || '').toLowerCase();
+    for (const w of words) {
+      if (msg.includes(w.toLowerCase())) { count++; break; }
+    }
+  }
+  if (count > 0) keywordCounts[label] = count;
+}
+const top5 = Object.entries(keywordCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+if (top5.length > 0) {
+  top5.forEach(([label, count]) => line(`· ${label}（提及 ${count} 次）`));
+} else {
+  line('暂无');
+}
+
+hr();
+line('━━ 近30天打卡数据 ━━');
+
+const days30ago = new Date(now); days30ago.setDate(days30ago.getDate() - 30);
+const recent30 = dailyLogs.filter(l => new Date(l.date) >= days30ago);
+const checkinDays = recent30.length;
+
+if (checkinDays > 0) {
+  line(`打卡天数：${checkinDays} / 30 天`);
+
+  const sleepLogs = recent30.filter(l => l.sleep_score);
+  if (sleepLogs.length > 0) {
+    const avgSleep = (sleepLogs.reduce((s,l) => s + l.sleep_score, 0) / sleepLogs.length).toFixed(1);
+    line(`平均睡眠评分：${avgSleep} 分（满分5分）`);
+
+    // 找睡眠最差的一周
+    let worstStart = '', worstAvg = 6;
+    for (let d = new Date(days30ago.getTime()); d <= now; d.setDate(d.getDate() + 1)) {
+      const weekEnd = new Date(d.getTime()); weekEnd.setDate(weekEnd.getDate() + 6);
+      const weekLogs = sleepLogs.filter(l => {
+        const ld = new Date(l.date); return ld >= d && ld <= weekEnd;
+      });
+      if (weekLogs.length >= 2) {
+        const avg = weekLogs.reduce((s,l) => s + l.sleep_score, 0) / weekLogs.length;
+        if (avg < worstAvg) { worstAvg = avg; worstStart = `${d.getMonth()+1}/${d.getDate()}-${weekEnd.getMonth()+1}/${weekEnd.getDate()}`; }
+      }
+    }
+    if (worstStart) line(`睡眠最差的一周：${worstStart}（均分${worstAvg.toFixed(1)}）`);
+  }
+
+  // 情绪分布
+  const moodMap = {'😊':'好','😐':'一般','😤':'差','😢':'差','😴':'差'};
+  const moodCount = {};
+  recent30.forEach(l => { if (l.mood) { const m = moodMap[l.mood]||'一般'; moodCount[m] = (moodCount[m]||0) + 1; } });
+  if (Object.keys(moodCount).length > 0) {
+    const parts = [];
+    if (moodCount['好']) parts.push(`😊好 ${moodCount['好']}天`);
+    if (moodCount['一般']) parts.push(`😐一般 ${moodCount['一般']}天`);
+    if (moodCount['差']) parts.push(`😔差 ${moodCount['差']}天`);
+    line(`情绪分布：${parts.join(' / ')}`);
+  }
+
+  // 高频症状
+  const symptomLabels = { hot_flash:'潮热', night_sweat:'夜间出汗', poor_sleep:'睡眠差', mood_swing:'情绪波动', joint_pain:'关节不适', brain_fog:'脑雾' };
+  const symptomCount = {};
+  recent30.forEach(l => { if (l.symptoms) l.symptoms.forEach(s => { if (s !== 'none') symptomCount[s] = (symptomCount[s]||0) + 1; }); });
+  const topSymptoms = Object.entries(symptomCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  if (topSymptoms.length > 0) {
+    line('高频症状：');
+    topSymptoms.forEach(([k,v]) => line(`· ${symptomLabels[k]||k} ${v} 次`));
+  }
+} else {
+  line('暂无');
+}
+
+hr();
+line('━━ 生活方式 ━━');
+let exerciseStr = '未填写';
+if (profile.exercise) {
+  exerciseStr = EXERCISE_MAP[profile.exercise] || profile.exercise;
+  if (profile.exercise_type) exerciseStr += '，' + profile.exercise_type;
+}
+line(`运动：${exerciseStr}`);
+
+let dietStr = '未填写';
+const dVal = typeof profile.diet === 'object' ? profile.diet.value : profile.diet;
+if (dVal && dVal !== 'none') {
+  dietStr = DIET_MAP[dVal] || dVal;
+  if (profile.diet_note) dietStr += '，' + profile.diet_note;
+} else if (dVal === 'none') {
+  dietStr = '没有特别限制';
+}
+line(`饮食：${dietStr}`);
+line(`目前用药/保健品：${profile.medication || '无'}`);
+
+hr();
+line('━━ 备注 ━━');
+line('本报告由 Stacy Moon 健康记录自动生成，');
+line('数据来源为用户本人填写及日常对话记录，');
+line('仅供医生参考，不构成诊断依据。');
+
+// ── 渲染成 HTML ────────────────────────────
+function reportToHTML(txt) {
+  const lines = txt.split('\n');
+  let html = '';
+  let listOpen = false;
+  for (const l of lines) {
+    if (l.startsWith('· ')) {
+      if (!listOpen) { html += '<ul class="report-list">'; listOpen = true; }
+      html += `<li>${esc(l.slice(2))}</li>`;
+      continue;
+    }
+    if (listOpen) { html += '</ul>'; listOpen = false; }
+    if (l.startsWith('━━')) {
+      html += `<hr class="report-divider"><div class="report-section-title">${esc(l.substring(2, l.length - 2))}</div>`;
+    } else if (l.startsWith('就医参考摘要')) {
+      html += `<div class="report-title">${esc(l)}</div>`;
+    } else if (l.startsWith('生成时间：')) {
+      html += `<div class="report-time">${esc(l)}</div>`;
+    } else if (l === '') {
+      html += '';
+    } else {
+      html += `<div class="report-line">${esc(l)}</div>`;
+    }
+  }
+  if (listOpen) html += '</ul>';
+  return html;
+}
+
+document.getElementById('report-card').innerHTML = reportToHTML(report);
+
+// ── 复制全文 ─────────────────────────────
+document.getElementById('copy-btn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(report);
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ 已复制，可粘贴给医生';
+    btn.classList.add('done');
+    setTimeout(() => { btn.textContent = '📋 复制全文'; btn.classList.remove('done'); }, 2500);
+  } catch {
+    // 兜底
+    const ta = document.createElement('textarea');
+    ta.value = report;
+    ta.style.position = 'fixed'; ta.style.left = '-999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ 已复制';
+    btn.classList.add('done');
+    setTimeout(() => { btn.textContent = '📋 复制全文'; btn.classList.remove('done'); }, 2500);
+  }
+});
+</script>
+</body>
+</html>
