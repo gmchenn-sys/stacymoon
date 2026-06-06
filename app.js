@@ -19,10 +19,59 @@ async function sendMessage() {
   } catch (e) {
     console.error('Stacy 请求失败:', e);
     removeLoading(loadingId);
-    const fallback = '网络有点问题，稍后再试一下 🌙';
-    appendBubble('ai', fallback);
-    saveLog(text, fallback);
+    showRetryBubble(text);
   }
+}
+
+// ── 重试 + 错误气泡 ──────────────────────────
+
+async function retryAi() {
+  const text = lastUserMessage;
+  if (!text) return;
+  // 删除错误气泡 + 按钮
+  removeRetryBubble();
+  const loadingId = appendLoading();
+  try {
+    const reply = await askStacy(text);
+    removeLoading(loadingId);
+    appendBubble('ai', reply);
+    if (window.notifyDaughter) notifyDaughter(text, reply);
+    saveLog(text, reply);
+  } catch (e) {
+    console.error('重试失败:', e);
+    removeLoading(loadingId);
+    showRetryBubble(text);
+  }
+}
+
+let retryBubbleEl = null;
+
+function showRetryBubble(userMessage) {
+  lastUserMessage = userMessage;
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = 'bubble-row ai';
+  div.id = 'retry-bubble';
+  div.innerHTML = `
+    <span class="avatar">🌙</span>
+    <div class="bubble ai-bubble">
+      网络有点问题，稍后再试一下 🌙
+      <div class="retry-actions">
+        <button class="retry-btn retry-primary" onclick="retryAi()">重试</button>
+        <button class="retry-btn" onclick="removeRetryBubble()">算了</button>
+      </div>
+    </div>
+  `;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  retryBubbleEl = div;
+}
+
+function removeRetryBubble() {
+  const el = document.getElementById('retry-bubble');
+  if (el) el.remove();
+  if (retryBubbleEl) retryBubbleEl.remove();
+  retryBubbleEl = null;
 }
 
 async function saveLog(userMessage, aiReply) {
@@ -121,6 +170,7 @@ const voiceIcon = document.getElementById('voice-icon');
 
 let voiceActive = false;
 let isSpeaking = false;        // TTS 正在播放中
+let lastUserMessage = '';       // 最后一条用户消息，错误时用于重试
 let currentAudio = null;
 let currentAudioSource = null;  // AudioContext BufferSource 引用，打断时 stop
 let currentTtsQueue = null;
@@ -621,10 +671,8 @@ async function handleSpeechInput(text) {
   } catch (e) {
     console.error('Stacy 请求失败:', e);
     removeStreamingBubble(aiBubble);
-    appendBubble('ai', '网络有点问题，稍后再试一下 🌙');
-    saveLog(text, '');
+    showRetryBubble(text);
     isSpeaking = false;
-    if (voiceActive) { /* user taps mic to record next */ }
   }
 }
 
