@@ -21,7 +21,7 @@
       -webkit-font-smoothing:antialiased;
       padding:0 16px 24px;
       padding-top:max(12px,env(safe-area-inset-top));
-      padding-bottom:max(24px,env(safe-area-inset-bottom));
+      padding-bottom:max(90px,env(safe-area-inset-bottom));
     }
 
     /* ── 顶部栏 ─────────── */
@@ -144,6 +144,21 @@
     .log-time{font-size:0.65rem;color:var(--text-muted);flex-shrink:0;width:32px}
     .log-preview{font-size:0.78rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
     .log-empty{text-align:center;padding:20px 0;color:var(--text-muted);font-size:0.75rem;line-height:1.6}
+
+    /* ── 底部导航栏 ──────── */
+    .bottom-nav{
+      position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+      display:flex;justify-content:space-around;align-items:center;
+      background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      border-top:1px solid var(--border);
+      padding:8px 0 max(8px,env(safe-area-inset-bottom));
+      z-index:200;
+    }
+    .nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 20px;text-decoration:none;color:var(--text-muted);font-size:0.65rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+    .nav-tab .nav-icon{font-size:20px;line-height:1}
+    .nav-tab.active{color:var(--accent)}
+    .nav-tab:active{opacity:0.7}
   </style>
 </head>
 <body>
@@ -330,5 +345,12 @@ function e(s){const d=document.createElement('div');d.textContent=s;return d.inn
 document.getElementById('cta-btn').addEventListener('click',()=>{sessionStorage.setItem('from_home','1');location.href='index.html';});
 document.getElementById('profile-btn').addEventListener('click',()=>{alert('档案功能即将上线');});
 </script>
+
+<nav class="bottom-nav">
+  <a class="nav-tab active" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+  <a class="nav-tab" href="index.html" onclick="sessionStorage.setItem('from_home','1')"><span class="nav-icon">🌙</span>聊天</a>
+  <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+</nav>
+
 </body>
 </html>

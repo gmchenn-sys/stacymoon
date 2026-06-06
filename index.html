@@ -51,6 +51,23 @@
       70%  { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
       100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
     }
+    /* ── 底部导航栏 ──────── */
+    .bottom-nav{
+      position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+      display:flex;justify-content:space-around;align-items:center;
+      background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      border-top:1px solid rgba(255,255,255,0.06);
+      padding:8px 0 max(8px,env(safe-area-inset-bottom));
+      z-index:101;
+    }
+    .nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 20px;text-decoration:none;color:#71717a;font-size:0.65rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+    .nav-tab .nav-icon{font-size:20px;line-height:1}
+    .nav-tab.active{color:#F97316}
+    .nav-tab:active{opacity:0.7}
+    /* input-area 让出 nav 空间 */
+    .input-area{bottom:60px !important}
+    .chat-box{padding-bottom:140px !important}
   </style>
 </head>
 <body>
@@ -127,6 +144,12 @@
       <button id="send-btn" class="send-btn">发送</button>
     </div>
   </footer>
+
+  <nav class="bottom-nav">
+    <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+    <span class="nav-tab active"><span class="nav-icon">🌙</span>聊天</span>
+    <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+  </nav>
 
   <script src="supabase.js"></script>
   <script src="api.js"></script>
