@@ -74,6 +74,18 @@
     @keyframes avatarBreathe{0%,100%{opacity:0.6}50%{opacity:1}}
     .slow-hint{font-size:0.65rem;color:var(--text-muted);margin-top:6px;opacity:0.6;display:none}
     .slow-hint.show{display:block}
+    /* ── 声波动画（TTS播放中）── */
+    .soundwave{display:none;align-items:flex-end;gap:2px;margin-left:6px;height:18px}
+    .soundwave.show{display:flex}
+    .soundwave-bar{width:3px;border-radius:1px;background:var(--accent);opacity:0.5;animation:soundwavePulse 0.8s ease-in-out infinite alternate}
+    .soundwave-bar:nth-child(1){height:6px;animation-delay:0s}
+    .soundwave-bar:nth-child(2){height:12px;animation-delay:0.15s}
+    .soundwave-bar:nth-child(3){height:16px;animation-delay:0.3s}
+    .soundwave-bar:nth-child(4){height:8px;animation-delay:0.45s}
+    @keyframes soundwavePulse{0%{opacity:0.3;transform:scaleY(0.5)}100%{opacity:0.9;transform:scaleY(1)}}
+    .listening-hint{font-size:0.65rem;color:rgba(255,255,255,0.2);text-align:center;margin-top:4px;display:none}
+    .listening-hint.show{display:block}
+    .input-area.waiting .user-input,.input-area.waiting .send-btn{opacity:0.35;pointer-events:none}
     /* ── 底部导航栏 ──────── */
     .bottom-nav{
       position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
@@ -229,6 +241,7 @@
       <button id="send-btn" class="send-btn">发送</button>
     </div>
     <p class="first-chat-hint" id="first-chat-hint">可以直接说话，也可以打字 👆</p>
+    <p class="listening-hint" id="listening-hint">Stacy 说完了再问我吧...</p>
   </footer>
 
   <script>

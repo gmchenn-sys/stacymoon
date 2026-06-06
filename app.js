@@ -173,6 +173,22 @@ function removeStreamingBubble(el) {
   if (el) el.remove();
 }
 
+// ── 声波动画（TTS 播放中显示在 AI 气泡旁）──
+function showSoundwave(aiBubble) {
+  const bubble = aiBubble ? aiBubble.querySelector('.ai-bubble') : null;
+  if (bubble && !bubble.querySelector('.soundwave')) {
+    bubble.insertAdjacentHTML('beforeend', '<span class="soundwave show"><span class="soundwave-bar"></span><span class="soundwave-bar"></span><span class="soundwave-bar"></span><span class="soundwave-bar"></span></span>');
+  }
+  document.getElementById('listening-hint')?.classList.add('show');
+  document.querySelector('.input-area')?.classList.add('waiting');
+}
+
+function hideSoundwave() {
+  document.querySelectorAll('.soundwave').forEach(el => el.classList.remove('show'));
+  document.getElementById('listening-hint')?.classList.remove('show');
+  document.querySelector('.input-area')?.classList.remove('waiting');
+}
+
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 document.getElementById('user-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') sendMessage();
@@ -603,6 +619,7 @@ function abortAllTts() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   window.speechSynthesis.cancel();
   isSpeaking = false;
+  hideSoundwave();
   voiceBtn.classList.remove('voice-speaking', 'voice-active');
   setMicIcon('mic');
 }
@@ -626,6 +643,7 @@ async function handleSpeechInput(text) {
 
     isSpeaking = true;
     if (sttActive) { stopRecording(); }
+    showSoundwave(aiBubble);
     console.log('[TTS] isSpeaking=true, 录音已停止');
 
     ttsProcessing = true;
@@ -649,6 +667,7 @@ async function handleSpeechInput(text) {
     ttsProcessing = false;
 
     isSpeaking = false;
+    hideSoundwave();
     console.log('[TTS] drainTtsQueue 完成, 500ms 后自动录音');
     // 清除旧定时器，设新定时器
     if (sttAutoStartTimer) clearTimeout(sttAutoStartTimer);
