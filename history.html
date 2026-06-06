@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Stacy Moon · 打卡历史</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--accent:#F97316;--text:#e4e4e7;--text-muted:#71717a;--surface:#12121a;--border:rgba(255,255,255,0.06);--radius:14px}
+body{
+  font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);
+  max-width:420px;margin:0 auto;min-height:100dvh;padding:0 16px 90px;
+  padding-top:max(12px,env(safe-area-inset-top));
+  -webkit-font-smoothing:antialiased;
+}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 4px 16px}
+.back-btn{background:none;border:none;color:var(--text-muted);font-size:1.1rem;cursor:pointer;padding:4px;font-family:inherit}
+.title{font-size:1rem;font-weight:600;color:#fff}
+
+.section{margin-bottom:20px}
+.section-label{font-size:0.68rem;color:var(--text-muted);letter-spacing:1.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.section-label .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+/* ── 睡眠折线 SVG ──── */
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.chart-svg{width:100%;height:auto}
+.grid-line{stroke:rgba(255,255,255,0.04);stroke-width:1}
+.axis-label{font-size:8px;fill:var(--text-muted);font-family:'Noto Sans SC',sans-serif}
+.line-path{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.dot-circle{fill:var(--accent)}
+.dot-empty{fill:var(--surface);stroke:var(--border);stroke-width:1.5}
+
+/* ── 情绪色块 ──── */
+.mood-blocks{display:flex;flex-wrap:wrap;gap:3px}
+.mood-block{width:18px;height:18px;border-radius:4px;flex-shrink:0}
+.mood-block.good{background:#F97316}
+.mood-block.ok{background:#555}
+.mood-block.bad{background:#1e3a5f}
+.mood-block.empty{background:rgba(255,255,255,0.04)}
+
+/* ── 症状 TOP3 ──── */
+.top-symptoms{display:flex;gap:10px}
+.symptom-rank{flex:1;text-align:center;padding:12px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.symptom-rank .rank-num{font-size:1.3rem;font-weight:700;color:var(--accent);line-height:1.2}
+.symptom-rank .rank-label{font-size:0.7rem;color:var(--text-muted);margin-top:2px}
+.symptom-rank .rank-count{font-size:0.65rem;color:var(--text-muted);opacity:0.7}
+.no-data{padding:20px 0;text-align:center;color:var(--text-muted);font-size:0.8rem;line-height:1.6}
+
+/* ── 日志列表 ──── */
+.log-item{padding:14px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--border);margin-bottom:10px}
+.log-date{font-size:0.78rem;color:#fff;font-weight:500;margin-bottom:6px}
+.log-mood{display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:0.82rem}
+.log-mood .emoji{font-size:18px}
+.log-sleep{color:var(--text-muted);font-size:0.75rem}
+.log-symptoms{font-size:0.72rem;color:var(--text-muted);margin-top:4px}
+.log-note{font-size:0.72rem;color:var(--text-muted);margin-top:2px;font-style:italic}
+.log-note::before{content:'"'}
+.log-note::after{content:'"'}
+
+.load-more-btn{
+  width:100%;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-muted);font-family:inherit;font-size:0.85rem;cursor:pointer;
+  transition:border-color 0.2s,color 0.2s;
+}
+.load-more-btn:active{border-color:var(--accent);color:var(--accent)}
+.load-more-btn:disabled{opacity:0.4;cursor:default}
+
+/* ── 底部导航栏 ──── */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
+  display:flex;justify-content:space-around;align-items:center;
+  background:rgba(10,10,15,0.95);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--border);
+  padding:8px 0 max(8px,env(safe-area-inset-bottom));
+  z-index:200;
+}
+.nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 14px;text-decoration:none;color:var(--text-muted);font-size:0.62rem;transition:color 0.2s;user-select:none;-webkit-tap-highlight-color:transparent}
+.nav-tab .nav-icon{font-size:18px;line-height:1}
+.nav-tab.active{color:var(--accent)}
+.nav-tab:active{opacity:0.7}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="back-btn" onclick="location.href='home.html'">← 返回</button>
+  <div class="title">📅 打卡历史</div>
+  <div style="width:48px"></div>
+</div>
+
+<div class="section"><div class="section-label"><span class="dot"></span>趋势（近30天）</div></div>
+
+<div class="chart-card" id="sleep-chart-card">
+  <div class="section-label" style="margin-top:0">💤 睡眠评分</div>
+  <svg class="chart-svg" id="sleep-svg" viewBox="0 0 340 120"></svg>
+  <div class="no-data" id="sleep-empty" style="display:none">还没有睡眠评分数据</div>
+</div>
+
+<div class="chart-card">
+  <div class="section-label" style="margin-top:0">😊 情绪记录</div>
+  <div class="mood-blocks" id="mood-blocks"></div>
+  <div class="no-data" id="mood-empty" style="display:none">还没有情绪记录</div>
+</div>
+
+<div class="chart-card">
+  <div class="section-label" style="margin-top:0">🏷️ 高频症状 TOP3</div>
+  <div class="top-symptoms" id="top-symptoms"></div>
+  <div class="no-data" id="symptom-empty" style="display:none">还没有症状记录</div>
+</div>
+
+<div class="section" style="margin-top:24px"><div class="section-label"><span class="dot"></span>打卡详情</div></div>
+<div id="log-list">
+  <div class="no-data" id="log-empty">还没有打卡记录<br>回首页打卡吧</div>
+</div>
+<div style="padding:0 0 20px;display:none" id="load-more-wrap">
+  <button class="load-more-btn" id="load-more-btn">加载更多</button>
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
+  <a class="nav-tab" href="index.html" onclick="sessionStorage.setItem('from_home','1')"><span class="nav-icon">🌙</span>聊天</a>
+  <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
+  <span class="nav-tab active"><span class="nav-icon">📅</span>打卡</span>
+</nav>
+
+<script>
+const dailyLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]').sort((a,b) => new Date(b.date) - new Date(a.date));
+const PER_PAGE = 10;
+let displayCount = 0;
+
+const SYMPTOM_LABELS = { hot_flash:'潮热', night_sweat:'夜间出汗', poor_sleep:'睡眠差', mood_swing:'情绪波动', joint_pain:'关节不适', brain_fog:'脑雾' };
+const WEEKDAYS = ['日','一','二','三','四','五','六'];
+
+// ═══════════════════════════════════════════════════════════
+// ── 趋势：睡眠折线图 ──────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+(function renderSleepChart() {
+  const daysAgo30 = new Date(); daysAgo30.setDate(daysAgo30.getDate() - 29);
+  daysAgo30.setHours(0,0,0,0);
+  const dates = [];
+  for (let i = 0; i < 30; i++) { const d = new Date(daysAgo30); d.setDate(d.getDate() + i); dates.push(d.toISOString().slice(0,10)); }
+
+  const scoreMap = {};
+  dailyLogs.forEach(l => { if (l.sleep_score) scoreMap[l.date] = Math.min(5, Math.max(1, parseInt(l.sleep_score))); });
+  const values = dates.map(d => scoreMap[d] || 0);
+
+  const hasData = values.some(v => v > 0);
+  if (!hasData) { document.getElementById('sleep-empty').style.display = ''; document.getElementById('sleep-svg').style.display = 'none'; return; }
+
+  const W = 340, H = 120;
+  const padL = 28, padR = 8, padT = 14, padB = 18;
+  const pw = W - padL - padR;
+  const ph = H - padT - padB;
+  const xStep = values.length > 1 ? pw / (values.length - 1) : pw;
+  const yScale = ph / 5;
+
+  let svg = '';
+
+  // grid + y labels
+  for (let i = 1; i <= 5; i++) {
+    const y = padT + ph - i * yScale;
+    svg += `<line x1="${padL}" y1="${y}" x2="${padL + pw}" y2="${y}" class="grid-line"/>`;
+    svg += `<text x="${padL - 6}" y="${y + 3}" class="axis-label" text-anchor="end">${i}</text>`;
+  }
+
+  // x labels: first mid last
+  [0, 14, 29].forEach(i => {
+    const d = new Date(daysAgo30); d.setDate(d.getDate() + i);
+    svg += `<text x="${padL + i * xStep}" y="${H - 3}" class="axis-label" text-anchor="middle">${d.getMonth()+1}/${d.getDate()}</text>`;
+  });
+
+  // path + dots
+  let points = '';
+  values.forEach((v, i) => {
+    const x = padL + i * xStep;
+    const y = v > 0 ? padT + ph - v * yScale : padT + ph;
+    points += `${x.toFixed(1)},${y.toFixed(1)} `;
+  });
+  svg += `<polyline points="${points.trim()}" class="line-path"/>`;
+
+  // dots
+  values.forEach((v, i) => {
+    const x = padL + i * xStep;
+    const y = padT + ph - (v || 0) * yScale;
+    if (v > 0) {
+      svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" class="dot-circle"/>`;
+    } else {
+      svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" class="dot-empty"/>`;
+    }
+  });
+
+  document.getElementById('sleep-svg').innerHTML = svg;
+})();
+
+// ═══════════════════════════════════════════════════════════
+// ── 趋势：情绪色块 ──────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+(function renderMoodBlocks() {
+  const daysAgo30 = new Date(); daysAgo30.setDate(daysAgo30.getDate() - 29);
+  daysAgo30.setHours(0,0,0,0);
+  const moodMap = {};
+  dailyLogs.forEach(l => { if (l.mood) moodMap[l.date] = l.mood; });
+
+  const el = document.getElementById('mood-blocks');
+  let hasAny = false;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(daysAgo30); d.setDate(d.getDate() + i);
+    const date = d.toISOString().slice(0,10);
+    const mood = moodMap[date];
+    let cls = 'empty';
+    if (mood === '😊') { cls = 'good'; hasAny = true; }
+    else if (mood === '😐') { cls = 'ok'; hasAny = true; }
+    else if (mood === '😤' || mood === '😢' || mood === '😴') { cls = 'bad'; hasAny = true; }
+    el.innerHTML += `<div class="mood-block ${cls}" title="${date.slice(5)}: ${mood||'无'}"></div>`;
+  }
+  if (!hasAny) { el.style.display = 'none'; document.getElementById('mood-empty').style.display = ''; }
+})();
+
+// ═══════════════════════════════════════════════════════════
+// ── 趋势：高频症状 TOP3 ──────────────────────
+// ═══════════════════════════════════════════════════════════
+
+(function renderTopSymptoms() {
+  const daysAgo30 = new Date(); daysAgo30.setDate(daysAgo30.getDate() - 30);
+  const counts = {};
+  dailyLogs.forEach(l => {
+    if (new Date(l.date) >= daysAgo30 && l.symptoms) {
+      l.symptoms.forEach(s => { if (s !== 'none') counts[s] = (counts[s] || 0) + 1; });
+    }
+  });
+  const top3 = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 3);
+
+  const el = document.getElementById('top-symptoms');
+  if (top3.length === 0) { el.style.display = 'none'; document.getElementById('symptom-empty').style.display = ''; return; }
+
+  top3.forEach(([k, v]) => {
+    el.innerHTML += `<div class="symptom-rank"><div class="rank-num">${v}</div><div class="rank-label">${SYMPTOM_LABELS[k] || k}</div><div class="rank-count">次</div></div>`;
+  });
+})();
+
+// ═══════════════════════════════════════════════════════════
+// ── 详情列表 ────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+const MOOD_LABEL = { '😊':'好','😐':'一般','😤':'烦躁','😢':'低落','😴':'很累' };
+
+function renderMoreLogs() {
+  const list = document.getElementById('log-list');
+  const slice = dailyLogs.slice(displayCount, displayCount + PER_PAGE);
+  displayCount += slice.length;
+
+  if (displayCount <= PER_PAGE && !list.querySelector('.log-item')) {
+    // 清空初始空状态
+    const empty = document.getElementById('log-empty');
+    if (empty && slice.length > 0) empty.style.display = 'none';
+  }
+
+  slice.forEach(l => {
+    const d = new Date(l.date + 'T00:00:00');
+    const dateStr = `${d.getMonth()+1}月${d.getDate()}日（${WEEKDAYS[d.getDay()]}）`;
+    const moodStr = l.mood ? MOOD_LABEL[l.mood] || '' : '';
+    const sleepStr = l.sleep_score ? ('⭐'.repeat(l.sleep_score) + ' ' + l.sleep_score + '分') : '';
+    const symptomsStr = (l.symptoms || []).filter(s => s !== 'none').map(s => SYMPTOM_LABELS[s] || s).join(' · ');
+    const noteStr = l.note || '';
+
+    const el = document.createElement('div');
+    el.className = 'log-item';
+    el.innerHTML = `
+      <div class="log-date">${dateStr}</div>
+      ${moodStr ? `<div class="log-mood"><span class="emoji">${l.mood}</span>心情${moodStr}</div>` : ''}
+      ${sleepStr ? `<div class="log-sleep">睡眠 ${sleepStr}</div>` : ''}
+      ${symptomsStr ? `<div class="log-symptoms">症状：${esc(symptomsStr)}</div>` : ''}
+      ${noteStr ? `<div class="log-note">${esc(noteStr)}</div>` : ''}
+    `;
+    list.appendChild(el);
+  });
+
+  const btn = document.getElementById('load-more-btn');
+  const wrap = document.getElementById('load-more-wrap');
+  if (displayCount >= dailyLogs.length) {
+    btn.textContent = `已显示全部 ${dailyLogs.length} 条`;
+    btn.disabled = true;
+  } else {
+    wrap.style.display = '';
+    btn.textContent = `加载更多（${displayCount}/${dailyLogs.length}）`;
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('load-more-btn').addEventListener('click', renderMoreLogs);
+
+// 初始加载
+renderMoreLogs();
+if (dailyLogs.length > PER_PAGE) document.getElementById('load-more-wrap').style.display = '';
+</script>
+</body>
+</html>
