@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stacy Moon · 功能说明</title>
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:'Noto Sans SC',-apple-system,sans-serif;background:#0a0a0f;color:#e4e4e7;
+    max-width:800px;margin:0 auto;padding:40px 24px 80px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+  .hero{text-align:center;padding:40px 0 32px;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:40px}
+  .hero h1{font-size:2rem;color:#fff;margin-bottom:8px}
+  .hero .moon{font-size:48px;margin-bottom:12px}
+  .hero .meta{font-size:0.8rem;color:#71717a}
+  .hero .meta span{color:#F97316;font-weight:600}
+
+  h2{font-size:1.1rem;color:#F97316;margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid rgba(249,115,22,0.15)}
+  h2 .emoji{margin-right:6px}
+  h3{font-size:0.9rem;color:#fff;margin:16px 0 8px}
+  p{font-size:0.85rem;color:#a1a1aa;margin-bottom:8px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media (max-width:600px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  .card{
+    background:#12121a;border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:18px 16px;
+  }
+  .card.orange{border-left:3px solid #F97316}
+  .card.green{border-left:3px solid #22c55e}
+  .card.purple{border-left:3px solid #8B5CF6}
+  .card.blue{border-left:3px solid #3B82F6}
+  .card-title{font-size:0.82rem;color:#fff;font-weight:600;margin-bottom:6px}
+  .card-desc{font-size:0.75rem;color:#71717a;line-height:1.5}
+
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:16px 0}
+  .flow-step{background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px 14px;font-size:0.78rem;color:#e4e4e7}
+  .flow-arrow{color:#71717a;font-size:1.2rem}
+
+  .page-table{width:100%;border-collapse:collapse}
+  .page-table th{font-size:0.68rem;color:#71717a;text-align:left;padding:10px 8px;border-bottom:1px solid rgba(255,255,255,0.04);letter-spacing:1px;text-transform:uppercase}
+  .page-table td{font-size:0.8rem;padding:10px 8px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top}
+  .page-table .file{font-family:'SF Mono',monospace;color:#F97316;font-size:0.78rem;white-space:nowrap}
+  .page-table .desc{color:#a1a1aa;line-height:1.5}
+
+  .tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.65rem;font-weight:500;margin-right:4px;margin-bottom:4px}
+  .tag-fe{background:rgba(59,130,246,0.15);color:#60a5fa}
+  .tag-be{background:rgba(34,197,94,0.12);color:#4ade80}
+  .tag-data{background:rgba(249,115,22,0.12);color:#fb923c}
+
+  .stat-row{display:flex;gap:24px;margin-bottom:20px;flex-wrap:wrap}
+  .stat{text-align:center}
+  .stat-num{font-size:1.6rem;font-weight:700;color:#F97316}
+  .stat-label{font-size:0.7rem;color:#71717a;margin-top:2px}
+
+  .code-block{background:#12121a;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:16px 18px;font-family:'SF Mono',monospace;font-size:0.75rem;line-height:1.7;overflow-x:auto;color:#a1a1aa;margin:12px 0}
+  .code-block .key{color:#F97316}
+  .code-block .val{color:#4ade80}
+  .code-block .comment{color:#555}
+
+  .footer{text-align:center;padding:40px 0 20px;border-top:1px solid rgba(255,255,255,0.04);margin-top:40px;color:#555;font-size:0.72rem}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="moon">🌙</div>
+  <h1>Stacy Moon</h1>
+  <p style="color:#a1a1aa;font-size:0.9rem">围绝经期女性健康陪伴 · AI 对话助手</p>
+  <div class="meta"><span>92 次迭代</span> · 18 个源文件 · ~4,800 行代码 · 2026年6月</div>
+</div>
+
+<div class="stat-row" style="justify-content:center">
+  <div class="stat"><div class="stat-num">10</div><div class="stat-label">HTML 页面</div></div>
+  <div class="stat"><div class="stat-num">6</div><div class="stat-label">JS 模块</div></div>
+  <div class="stat"><div class="stat-num">2</div><div class="stat-label">CF Functions</div></div>
+  <div class="stat"><div class="stat-num">6</div><div class="stat-label">localStorage 表</div></div>
+  <div class="stat"><div class="stat-num">1</div><div class="stat-label">Supabase 库</div></div>
+</div>
+
+<h2><span class="emoji">🏗️</span> 技术架构</h2>
+
+<div class="grid3">
+  <div class="card blue">
+    <div class="card-title">前端</div>
+    <div class="card-desc">纯原生 HTML/CSS/JS<br>无框架、无打包<br>Cloudflare Pages 托管<br>PWA 全屏 App 模式</div>
+  </div>
+  <div class="card green">
+    <div class="card-title">后端</div>
+    <div class="card-desc">Agent Server<br>Cloudflare Tunnel 代理<br>讯飞 STT 语音听写<br>讯飞 TTS 语音合成</div>
+  </div>
+  <div class="card orange">
+    <div class="card-title">数据</div>
+    <div class="card-desc">localStorage 本地存储<br>Supabase 云端同步<br>飞书 Webhook 通知<br>邀请码 + 档案 + 打卡 + 对话</div>
+  </div>
+</div>
+
+<h2><span class="emoji">📱</span> 完整页面清单</h2>
+
+<table class="page-table">
+  <thead><tr><th>页面</th><th>路由</th><th>功能</th><th style="width:180px">数据/接口</th></tr></thead>
+  <tbody>
+    <tr>
+      <td class="file">index.html</td>
+      <td>/</td>
+      <td class="desc"><strong>AI 对话页</strong> — 文字+语音双输入<br>讯飞 STT 实时听写 · TTS 语音合成<br>流式气泡 · 重试 · 声波动画<br>消息推送到女儿飞书</td>
+      <td class="desc">
+        <span class="tag tag-fe">askStacy()</span>
+        <span class="tag tag-fe">SpeechRecognition</span>
+        <span class="tag tag-be">/api/chat</span>
+        <span class="tag tag-be">/api/tts</span>
+        <span class="tag tag-data">stacy_logs</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">home.html</td>
+      <td>/home</td>
+      <td class="desc"><strong>首页</strong> — 每日打卡(心情/睡眠/症状)<br>今日小任务引擎 · 周报/提醒入口<br>最近对话记录</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_daily_logs</span>
+        <span class="tag tag-data">stacy_task_status</span>
+        <span class="tag tag-data">stacy_profile</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">onboarding.html</td>
+      <td>/onboarding</td>
+      <td class="desc"><strong>建档问卷</strong> — 8题翻页卡片<br>称呼/年龄/身高体重/月经/症状/运动/饮食/用药<br>必填校验 · 跳过 · 进度条</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_profile</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">weekly.html</td>
+      <td>/weekly</td>
+      <td class="desc"><strong>周报</strong> — 概览数字/心情周历/睡眠柱状<br>症状频率/对话片段/AI 总结<br>一键推送到飞书（女儿）</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_daily_logs</span>
+        <span class="tag tag-data">stacy_logs</span>
+        <span class="tag tag-be">飞书 Webhook</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">history.html</td>
+      <td>/history</td>
+      <td class="desc"><strong>打卡历史</strong> — 睡眠折线图 SVG<br>情绪色块/高频症状 TOP3<br>打卡详情列表(加载更多)</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_daily_logs</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">profile.html</td>
+      <td>/profile</td>
+      <td class="desc"><strong>档案编辑</strong> — 8个字段可编辑<br>和建档一一对应 · 保存回写<br>底部「生成就医报告」入口</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_profile</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">report.html</td>
+      <td>/report</td>
+      <td class="desc"><strong>就医报告</strong> — BMI/月经/不适统计<br>30天打卡/生活方式/用药<br>纯文本+复制全文+浅色卡片</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_profile</span>
+        <span class="tag tag-data">stacy_daily_logs</span>
+        <span class="tag tag-data">stacy_logs</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">reminder.html</td>
+      <td>/reminder</td>
+      <td class="desc"><strong>用药提醒</strong> — 添加/编辑/删除/开关<br>Notification API 定时推送<br>名称预填档案 medication 字段</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_reminders</span>
+        <span class="tag tag-fe">Notification API</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">chat_history.html</td>
+      <td>/chat_history</td>
+      <td class="desc"><strong>对话记录</strong> — 按日期分组折叠<br>用户+Stacy 对话气泡 · 倒序</td>
+      <td class="desc">
+        <span class="tag tag-data">stacy_logs</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">daughter.html</td>
+      <td>/daughter</td>
+      <td class="desc"><strong>女儿守护版</strong> — 读取 Supabase<br>妈妈对话状态指示(活跃/等待)<br>对话记录展示</td>
+      <td class="desc">
+        <span class="tag tag-be">Supabase</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="file">admin.html</td>
+      <td>/admin</td>
+      <td class="desc"><strong>管理后台</strong> — 密码保护<br>批量生成邀请码/删除/列表<br>一键复制未使用码</td>
+      <td class="desc">
+        <span class="tag tag-be">Supabase</span>
+        <span class="tag tag-data">invite_codes</span>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+  <span class="tag tag-fe">前端功能</span><span class="tag tag-be">后端/API</span><span class="tag tag-data">存储</span>
+</div>
+
+<h2><span class="emoji">🔧</span> JS 模块 & Cloudflare Functions</h2>
+
+<div class="grid2">
+  <div class="card orange">
+    <div class="card-title">api.js</div>
+    <div class="card-desc"><strong>AI 接口层</strong> — askStacy() 调用 Agent Server<br>askStacyStream() 逐字模拟流式<br>stripMarkdown() 清理格式</div>
+  </div>
+  <div class="card orange">
+    <div class="card-title">app.js</div>
+    <div class="card-desc"><strong>对话核心逻辑</strong> — 发送/重试/错误处理<br>讯飞 STT WebSocket 实时听写<br>TTS 播放+声波/流式气泡/打断</div>
+  </div>
+  <div class="card orange">
+    <div class="card-title">notify.js</div>
+    <div class="card-desc"><strong>飞书通知</strong> — msg_type:post 富文本<br>妈妈消息+今日打卡状态<br>buildCheckinSection() 读取打卡数据</div>
+  </div>
+  <div class="card orange">
+    <div class="card-title">supabase.js</div>
+    <div class="card-desc"><strong>Supabase 配置</strong> — URL + anon key</div>
+  </div>
+  <div class="card blue">
+    <div class="card-title">functions/api/chat.js</div>
+    <div class="card-desc"><strong>CF Function</strong> — /api/chat 代理<br>浏览器 → CF → Agent Server<br>解决 HTTPS→HTTP Mixed Content</div>
+  </div>
+  <div class="card blue">
+    <div class="card-title">functions/api/tts.js</div>
+    <div class="card-desc"><strong>CF Function</strong> — /api/tts 语音合成<br>讯飞 WebSocket → 分段音频拼接<br>返回 audio/mpeg 二进制</div>
+  </div>
+</div>
+
+<h2><span class="emoji">🗄️</span> 数据存储设计</h2>
+
+<div class="code-block">
+<span class="comment">// localStorage（前端6个键）</span>
+<span class="key">stacy_invite_code</span>   → <span class="val">"moonA3k"</span>              <span class="comment">← 邀请码</span>
+<span class="key">stacy_profile</span>        → <span class="val">{name,age,height,...}</span>  <span class="comment">← 用户档案</span>
+<span class="key">stacy_daily_logs</span>     → <span class="val">[{date,mood,sleep,...}]</span> <span class="comment">← 每日打卡</span>
+<span class="key">stacy_logs</span>           → <span class="val">[{userMessage,aiReply}]</span> <span class="comment">← 对话记录</span>
+<span class="key">stacy_reminders</span>      → <span class="val">[{id,name,times,note}]</span> <span class="comment">← 用药提醒</span>
+<span class="key">stacy_task_status</span>    → <span class="val">{date,done}</span>            <span class="comment">← 今日任务完成态</span>
+<br>
+<span class="comment">// Supabase（后端1张表）</span>
+<span class="key">invite_codes</span>  → <span class="val">{code, feishu_webhook, created_at}</span>
+<span class="key">logs</span>           → <span class="val">{user_message, ai_reply, created_at}</span>  <span class="comment">← 对话同步</span>
+<span class="key">daily_logs</span>     → <span class="val">{invite_code, date, mood, sleep_score, symptoms, note}</span>
+</div>
+
+<h2><span class="emoji">🔄</span> 核心交互流</h2>
+
+<div class="card orange" style="margin-bottom:12px">
+  <div class="card-title">💬 对话流程</div>
+  <div class="flow">
+    <div class="flow-step">用户输入<br>文字/语音</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">askStacy()<br>/api/chat</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">CF Proxy<br>→ Agent</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">流式气泡<br>逐字显示</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">TTS 朗读<br>声波动画</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">saveLog<br>飞书通知</div>
+  </div>
+</div>
+
+<div class="card green" style="margin-bottom:12px">
+  <div class="card-title">🎤 语音流程</div>
+  <div class="flow">
+    <div class="flow-step">点麦克风<br>开始录音</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">AudioContext<br>16kHz PCM</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">讯飞 iAT<br>WebSocket</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">停止录音<br>发送 end 帧</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">收到结果<br>handleSpeech</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">对话流程 ↑</div>
+  </div>
+</div>
+
+<div class="card purple" style="margin-bottom:12px">
+  <div class="card-title">📍 页面导航流</div>
+  <div class="flow">
+    <div class="flow-step">首次访问</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">index.html<br>邀请码</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">onboarding<br>建档</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">home.html<br>首页打卡</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">index?chat<br>开始对话</div>
+  </div>
+</div>
+
+<h2><span class="emoji">🎯</span> 特色功能亮点</h2>
+
+<div class="grid2">
+  <div class="card orange">
+    <div class="card-title">📋 今日小任务引擎</div>
+    <div class="card-desc">根据打卡症状+档案运动习惯，从任务池匹配定制每日任务（60+条任务库，覆盖潮热/出汗/睡眠/情绪/关节/脑雾/少运动/通用）。日期做种子保证每天不重样。Health & Her 同款逻辑。</div>
+  </div>
+  <div class="card green">
+    <div class="card-title">🤖 动态开场语</div>
+    <div class="card-desc">3级优先级：昨天打卡数据分析 → 档案症状匹配 → 随机固定文案。"昨晚睡得不太好？今天感觉怎么样"——每次打开对话页都不一样。</div>
+  </div>
+  <div class="card purple">
+    <div class="card-title">📊 就医报告自动生成</div>
+    <div class="card-desc">聚合档案+打卡+对话三源数据。BMI 自动计算、对话关键词匹配 top5、30天打卡趋势、睡眠最差一周自动定位。白底卡片仿正式文件，复制全文即粘贴给医生。</div>
+  </div>
+  <div class="card blue">
+    <div class="card-title">🔔 飞书双向通知</div>
+    <div class="card-desc">每次对话推送结构化卡片给女儿：妈妈说了什么 + 今日心情/睡眠/症状。周报一键推送（紫色模板）。女儿不用装 App，飞书即收。</div>
+  </div>
+  <div class="card orange">
+    <div class="card-title">🎤 讯飞双引擎语音</div>
+    <div class="card-desc">STT: AudioContext → 16kHz 重采样 → 讯飞 iAT WebSocket 实时听写<br>TTS: /api/tts CF 代理 → 讯飞 TTS WebSocket → 分段音频拼接修复</div>
+  </div>
+  <div class="card green">
+    <div class="card-title">📈 打卡趋势可视化</div>
+    <div class="card-desc">SVG 睡眠折线图（30天）、情绪色块矩阵、高频症状 TOP3 排名。纯 CSS/SVG 实现，无第三方图表库。</div>
+  </div>
+  <div class="card purple">
+    <div class="card-title">📱 PWA 全屏应用</div>
+    <div class="card-desc">apple-mobile-web-app-capable + 安全区域适配。iPhone 添加到主屏幕后无缝全屏体验，底部5 tab 导航栏贯穿全站。</div>
+  </div>
+  <div class="card blue">
+    <div class="card-title">⏰ 用药提醒系统</div>
+    <div class="card-desc">添加次数+时间选择器，Notification API 浏览器推送。每次页面加载时自动注册当天剩余提醒。预填档案 medication 字段。</div>
+  </div>
+</div>
+
+<h2><span class="emoji">📂</span> 项目文件总览</h2>
+
+<div class="code-block">
+<span class="comment">// 10 个 HTML 页面</span>
+index.html          <span class="comment">← 对话页（主入口 + 邀请码验证）</span>
+home.html           <span class="comment">← 首页（打卡 + 任务 + 导航）</span>
+onboarding.html     <span class="comment">← 建档问卷（8题翻页卡片）</span>
+weekly.html         <span class="comment">← 周报（趋势 + 飞书推送）</span>
+history.html        <span class="comment">← 打卡历史（SVG图表 + 详情）</span>
+profile.html        <span class="comment">← 档案编辑（回写 + 就医入口）</span>
+report.html         <span class="comment">← 就医报告（聚合 + 复制）</span>
+reminder.html       <span class="comment">← 用药提醒（CRUD + 通知）</span>
+chat_history.html   <span class="comment">← 对话记录（日期分组折叠）</span>
+daughter.html       <span class="comment">← 女儿守护版（读 Supabase）</span>
+admin.html          <span class="comment">← 管理后台（密码 + 邀请码管理）</span>
+
+<span class="comment">// 6 个 JS 模块</span>
+api.js              <span class="comment">← Agent 接口（/api/chat 调用层）</span>
+app.js              <span class="comment">← 对话核心（STT/TTS/声波/打断/重试）</span>
+notify.js           <span class="comment">← 飞书通知推送</span>
+supabase.js         <span class="comment">← Supabase 连接配置</span>
+proxy.js            <span class="comment">← 旧 CORS 代理（已废弃）</span>
+style.css           <span class="comment">← 全局样式</span>
+
+<span class="comment">// 2 个 Cloudflare Functions</span>
+functions/api/chat.js   <span class="comment">← /api/chat 代理到 Agent Server</span>
+functions/api/tts.js    <span class="comment">← /api/tts 讯飞语音合成</span>
+functions/api/tts-test.js  <span class="comment">← TTS 调试工具</span>
+</div>
+
+<div class="footer">
+  Stacy Moon · 围绝经期女性健康 AI 陪伴<br>
+  Cloudflare Pages + Supabase + 讯飞 + 飞书<br>
+  ~4,800 行纯原生代码 · 无框架 · 92 次 Git 迭代<br>
+  <a href="https://stacymoon.pages.dev" style="color:#F97316">stacymoon.pages.dev</a>
+</div>
+
+</body>
+</html>
