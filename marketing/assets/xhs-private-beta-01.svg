@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <defs>
+    <linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF7EC"/>
+      <stop offset="0.52" stop-color="#F8EAD8"/>
+      <stop offset="1" stop-color="#D6F0EA"/>
+    </linearGradient>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFF8D8"/>
+      <stop offset="1" stop-color="#F6C86B"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="30" flood-color="#C46A5A" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1242" height="1660" fill="url(#bg1)"/>
+  <circle cx="975" cy="190" r="116" fill="url(#moon)" opacity="0.95"/>
+  <path d="M0 1205 C235 1125 372 1270 584 1192 C784 1118 928 1058 1242 1168 L1242 1660 L0 1660 Z" fill="#E6F4EC"/>
+  <path d="M0 1320 C210 1245 415 1385 643 1298 C861 1218 1004 1224 1242 1302 L1242 1660 L0 1660 Z" fill="#F5C5B4" opacity="0.55"/>
+  <g filter="url(#soft)">
+    <rect x="86" y="112" width="910" height="1014" rx="42" fill="#FFFDF7" opacity="0.72"/>
+  </g>
+  <text x="112" y="190" fill="#2C3835" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="34" font-weight="600">早期内测招募</text>
+  <text x="112" y="330" fill="#1F2D2A" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="78" font-weight="800">
+    <tspan x="112" dy="0">给正在经历</tspan>
+    <tspan x="112" dy="106">潮热、睡不好、</tspan>
+    <tspan x="112" dy="106">情绪起伏的</tspan>
+    <tspan x="112" dy="106">妈妈们</tspan>
+  </text>
+  <rect x="112" y="790" width="660" height="8" rx="4" fill="#E86F5F"/>
+  <text x="112" y="880" fill="#31534D" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="42" font-weight="600">
+    <tspan x="112" dy="0">我们正在做一个</tspan>
+    <tspan x="112" dy="64">更年期陪伴工具，</tspan>
+    <tspan x="112" dy="64">想邀请你一起试试。</tspan>
+  </text>
+  <g transform="translate(125 1180)">
+    <circle cx="120" cy="120" r="92" fill="#F3A78F"/>
+    <circle cx="92" cy="94" r="34" fill="#814B43"/>
+    <path d="M70 178 C88 132 154 132 174 178 C148 205 96 205 70 178Z" fill="#2D9D91"/>
+    <circle cx="280" cy="125" r="84" fill="#F8CDA4"/>
+    <circle cx="250" cy="102" r="31" fill="#3E5E59"/>
+    <path d="M226 176 C246 135 305 135 326 176 C302 200 251 201 226 176Z" fill="#E86F5F"/>
+    <path d="M166 126 C195 154 222 157 250 128" stroke="#2C3835" stroke-width="10" stroke-linecap="round" fill="none" opacity="0.65"/>
+  </g>
+  <g transform="translate(112 1430)">
+    <rect width="700" height="96" rx="48" fill="#2D9D91"/>
+    <text x="48" y="62" fill="#FFFFFF" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="40" font-weight="700">关注公众号，回复【月亮】</text>
+  </g>
+  <text x="112" y="1578" fill="#526B65" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="30">适合女儿和妈妈一起体验</text>
+</svg>
+

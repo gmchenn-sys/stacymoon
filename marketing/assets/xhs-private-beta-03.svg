@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="1660" viewBox="0 0 1242 1660">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF9F0"/>
+      <stop offset="0.45" stop-color="#EAF7F2"/>
+      <stop offset="1" stop-color="#F7C9B8"/>
+    </linearGradient>
+    <filter id="phoneShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="32" stdDeviation="32" flood-color="#324541" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="1242" height="1660" fill="url(#bg3)"/>
+  <path d="M87 257 C261 118 450 182 573 304 C704 433 880 387 1070 282" stroke="#E86F5F" stroke-width="18" stroke-linecap="round" fill="none" opacity="0.45"/>
+  <text x="112" y="218" fill="#22322F" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="70" font-weight="800">
+    <tspan x="112" dy="0">我们正在做一个</tspan>
+    <tspan x="112" dy="94">更年期陪伴工具</tspan>
+  </text>
+  <text x="112" y="442" fill="#45645E" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="40" font-weight="600">不是诊断，而是记录、理解和陪伴</text>
+  <g transform="translate(408 540)" filter="url(#phoneShadow)">
+    <rect width="420" height="680" rx="70" fill="#243A36"/>
+    <rect x="30" y="54" width="360" height="572" rx="44" fill="#FFFDF7"/>
+    <circle cx="210" cy="604" r="18" fill="#66827B"/>
+    <rect x="78" y="132" width="264" height="38" rx="19" fill="#E86F5F" opacity="0.88"/>
+    <rect x="78" y="224" width="222" height="28" rx="14" fill="#2D9D91" opacity="0.65"/>
+    <rect x="78" y="292" width="272" height="28" rx="14" fill="#F2B84B" opacity="0.65"/>
+    <rect x="78" y="360" width="188" height="28" rx="14" fill="#E86F5F" opacity="0.45"/>
+    <path d="M88 476 C150 422 207 510 272 448 C300 421 329 416 352 433" stroke="#2D9D91" stroke-width="12" stroke-linecap="round" fill="none"/>
+  </g>
+  <g font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="42" font-weight="700" fill="#20302C">
+    <text x="116" y="1345">记录身体变化</text>
+    <text x="116" y="1412">整理感受和症状</text>
+    <text x="116" y="1479">帮助家人更自然地理解彼此</text>
+  </g>
+  <rect x="116" y="1545" width="835" height="88" rx="44" fill="#2D9D91"/>
+  <text x="164" y="1603" fill="#FFFFFF" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, Arial, sans-serif" font-size="36" font-weight="800">关注公众号，回复【月亮】加入内测</text>
+</svg>
+
