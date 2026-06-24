@@ -17,10 +17,9 @@ async function sendMessage() {
   appendBubble('user', text);
   input.value = '';
 
-  const loadingId = appendLoading();
+  const aiBubble = createStreamingBubble();
 
   try {
-    const aiBubble = createStreamingBubble();
     const reply = await askStacyStream(text,
       null,  // 文字聊天不需要 TTS 句子回调
       (char) => {
@@ -28,13 +27,11 @@ async function sendMessage() {
           aiBubble._streamText = (aiBubble._streamText || '') + char);
       }
     );
-    removeLoading(loadingId);
     finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
     saveLog(text, reply);
   } catch (e) {
     console.error('Stacy 请求失败:', e);
-    removeLoading(loadingId);
     removeStreamingBubble(aiBubble);
     showRetryBubble(text);
   }

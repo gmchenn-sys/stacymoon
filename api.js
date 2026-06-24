@@ -50,8 +50,7 @@ async function askStacyStream(userMessage, onSentence, onChar) {
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages: [
-        { role: 'system', content: '你是 Stacy Moon，一个温柔、专业的 AI 健康陪伴助手，专门服务于更年期女性。用温暖、口语化的中文交流。' },
-        ...conversationHistory.slice(-10).map(m => ({ role: m.role, content: m.content })),
+        ...conversationHistory.slice(-4).map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content: userMessage }
       ],
       stream: true
