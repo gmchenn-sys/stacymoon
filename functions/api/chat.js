@@ -5,7 +5,7 @@ export async function onRequestPost(context) {
   try {
     const body = await context.request.json();
 
-    const res = await fetch('https://cemetery-kissing-smoke-speech.trycloudflare.com/chat', {
+    const res = await fetch('https://stacymoon.online/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
