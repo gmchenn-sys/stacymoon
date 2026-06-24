@@ -20,14 +20,22 @@ async function sendMessage() {
   const loadingId = appendLoading();
 
   try {
-    const reply = await askStacy(text);
+    const aiBubble = createStreamingBubble();
+    const reply = await askStacyStream(text,
+      null,  // 文字聊天不需要 TTS 句子回调
+      (char) => {
+        updateStreamingBubble(aiBubble, 
+          aiBubble._streamText = (aiBubble._streamText || '') + char);
+      }
+    );
     removeLoading(loadingId);
-    appendBubble('ai', reply);
+    finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
     saveLog(text, reply);
   } catch (e) {
     console.error('Stacy 请求失败:', e);
     removeLoading(loadingId);
+    removeStreamingBubble(aiBubble);
     showRetryBubble(text);
   }
 }
@@ -38,9 +46,16 @@ async function retryAi() {
   removeRetryBubble();
   const loadingId = appendLoading();
   try {
-    const reply = await askStacy(text);
+    const aiBubble = createStreamingBubble();
+    const reply = await askStacyStream(text,
+      null,
+      (char) => {
+        updateStreamingBubble(aiBubble,
+          aiBubble._streamText = (aiBubble._streamText || '') + char);
+      }
+    );
     removeLoading(loadingId);
-    appendBubble('ai', reply);
+    finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
     saveLog(text, reply);
   } catch (e) {
