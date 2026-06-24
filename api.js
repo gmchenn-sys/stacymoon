@@ -1,4 +1,4 @@
-// Stacy Moon — AI API Layer (Cloudflare Proxy)
+// Stacy Moon — AI API Layer (SSE Streaming)
 
 let conversationHistory = [];
 
@@ -14,6 +14,7 @@ function stripMarkdown(text) {
     .replace(/#{1,6}\s/g, '');
 }
 
+// ── 非流式（用于文字聊天，保留完整回复）─────────
 async function askStacy(userMessage) {
   conversationHistory.push({ role: "user", content: userMessage });
 
@@ -39,16 +40,21 @@ async function askStacy(userMessage) {
   return reply;
 }
 
-// 模拟流式版本（Agent 不返回 SSE，用逐字输出模拟，保持 TTS 排队逻辑工作）
+// ─ SSE 流式版本（真正的边收边显示）─────────────
 async function askStacyStream(userMessage, onSentence, onChar) {
   conversationHistory.push({ role: "user", content: userMessage });
 
-  const response = await fetch('/api/chat', {
+  const response = await fetch('https://stacymoon.online/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: userMessage,
-      user_id: getUserId()
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: '你是 Stacy Moon，一个温柔、专业的 AI 健康陪伴助手，专门服务于更年期女性。用温暖、口语化的中文交流。' },
+        ...conversationHistory.slice(-10).map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: userMessage }
+      ],
+      stream: true
     })
   });
 
@@ -57,27 +63,45 @@ async function askStacyStream(userMessage, onSentence, onChar) {
     throw new Error('Agent 请求失败: ' + response.status + (err ? ' ' + err.slice(0, 100) : ''));
   }
 
-  const data = await response.json();
-  const fullText = stripMarkdown(data.response);
-  if (!fullText) throw new Error('Agent 返回为空');
-
-  // 逐字输出模拟流式
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
   let sentenceBuffer = '';
-  for (let i = 0; i < fullText.length; i++) {
-    const char = fullText[i];
-    sentenceBuffer += char;
-    if (onChar) onChar(char);
 
-    // 检测句子边界：。！？换行
-    const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
-    if (m) {
-      const sentence = m[1].trim();
-      sentenceBuffer = m[2];
-      if (sentence && onSentence) onSentence(sentence);
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+      const data = trimmed.slice(6).trim();
+      if (data === '[DONE]') break;
+
+      try {
+        const parsed = JSON.parse(data);
+        const token = parsed.choices?.[0]?.delta?.content || '';
+        if (!token) continue;
+
+        fullText += token;
+        if (onChar) onChar(token);
+
+        // 检测句子边界
+        sentenceBuffer += token;
+        const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
+        if (m) {
+          const sentence = m[1].trim();
+          sentenceBuffer = m[2];
+          if (sentence && onSentence) onSentence(sentence);
+        }
+      } catch {}
     }
-
-    // 每字延迟 30ms，模拟打字效果
-    await new Promise(r => setTimeout(r, 30));
   }
 
   // 剩余尾部文字
@@ -85,6 +109,7 @@ async function askStacyStream(userMessage, onSentence, onChar) {
     onSentence(sentenceBuffer.trim());
   }
 
-  conversationHistory.push({ role: "assistant", content: fullText });
-  return fullText;
+  const cleaned = stripMarkdown(fullText);
+  conversationHistory.push({ role: "assistant", content: cleaned });
+  return cleaned;
 }
