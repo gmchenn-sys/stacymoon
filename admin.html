@@ -93,9 +93,9 @@ h1{font-size:1.2rem;color:#fff;margin-bottom:6px}
   <div class="card">
     <div class="card-title"><span class="dot"></span>批量导入邀请码</div>
     <p style="font-size:0.72rem;color:#71717a;margin-bottom:12px">
-      每行一个微信号（如 alice_wx、bob123），批量写入 Supabase
+      每行一个用户，微信号和飞书 webhook 用空格分隔<br>纯微信号 → 普通用户 | 微信号 + webhook → 母女互动用户
     </p>
-    <textarea id="code-textarea" rows="6" placeholder="alice_wx&#10;bob123&#10;carol_health&#10;..." style="width:100%;background:#1c1c24;border:1px solid rgba(255,255,255,0.06);border-radius:10px;color:#fff;font-family:'SF Mono',monospace;font-size:0.85rem;padding:12px;resize:vertical;outline:none"></textarea>
+    <textarea id="code-textarea" rows="6" placeholder="alice_wx&#10;carol_wx https://open.feishu.cn/open-apis/bot/v2/hook/xxx&#10;..." style="width:100%;background:#1c1c24;border:1px solid rgba(255,255,255,0.06);border-radius:10px;color:#fff;font-family:'SF Mono',monospace;font-size:0.85rem;padding:12px;resize:vertical;outline:none"></textarea>
     <div class="form-row" style="margin-top:12px">
       <button class="btn btn-primary" id="gen-btn">批量导入</button>
       <button class="btn btn-secondary" id="clear-textarea-btn">清空</button>
@@ -154,8 +154,12 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
   const raw = document.getElementById('code-textarea').value.trim();
   if (!raw) return;
 
-  // 按行分割，去空行、去前后空格
-  const codes = raw.split(/\n+/).map(s => s.trim()).filter(s => s.length > 0);
+  // 按行分割，解析 微信号 [webhook]
+  const lines = raw.split(/\n+/).map(s => s.trim()).filter(s => s.length > 0);
+  const entries = lines.map(line => {
+    const parts = line.split(/\s+/);
+    return { code: parts[0], feishu_webhook: parts[1] || '' };
+  });
 
   const box = document.getElementById('gen-result');
   const msg = document.getElementById('gen-count-msg');
@@ -169,9 +173,10 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
   const success = [];
   const failed = [];
   const skipped = [];
-  for (const code of codes) {
+  for (const { code, feishu_webhook } of entries) {
     const payload = {
       code: code,
+      feishu_webhook: feishu_webhook || '',
       created_at: new Date().toISOString()
     };
     try {
@@ -181,9 +186,8 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        success.push(code);
+        success.push(feishu_webhook ? code + ' 🔔' : code);
       } else {
-        // 409 = 重复
         const errText = await res.text();
         if (errText.includes('duplicate') || errText.includes('23505')) {
           skipped.push(code);
@@ -206,7 +210,6 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
     msg.textContent = `已导入 ${success.length} 个` +
       (skipped.length ? `（${skipped.length} 个已存在跳过）` : '') +
       (failed.length ? `（${failed.length} 失败）` : '');
-    // 清空 textarea
     document.getElementById('code-textarea').value = '';
   }
   if (failed.length > 0) {

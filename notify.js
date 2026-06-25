@@ -48,7 +48,7 @@ window.notifyDaughter = async function(userMessage, aiReply) {
   let webhook;
   try {
     const res = await fetch(
-      `${window.SUPABASE_URL}/rest/v1/invite_codes?code=eq.${encodeURIComponent(code)}&select=feishu_webhook`,
+      `${window.SUPABASE_URL}/rest/v1/invite_codes?code=ilike.${encodeURIComponent(code)}&select=feishu_webhook`,
       {
         headers: {
           'apikey': window.SUPABASE_KEY,
@@ -57,10 +57,14 @@ window.notifyDaughter = async function(userMessage, aiReply) {
       }
     );
     const data = await res.json();
-    if (!data.length) { console.warn('邀请码无效:', code); return; }
+    if (!data.length) { console.warn('[NOTIFY] 邀请码无效:', code); return; }
     webhook = data[0].feishu_webhook;
+    if (!webhook || webhook.length < 10) {
+      // 没有配置飞书 webhook，跳过通知
+      return;
+    }
   } catch (e) {
-    console.warn('邀请码查询失败:', e);
+    console.warn('[NOTIFY] 查询失败:', e);
     return;
   }
 
@@ -112,6 +116,6 @@ window.notifyDaughter = async function(userMessage, aiReply) {
     });
     console.log('[NOTIFY] 飞书已推送');
   } catch(e) {
-    console.log('飞书通知失败', e);
+    console.log('[NOTIFY] 飞书通知失败', e);
   }
 };
