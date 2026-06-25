@@ -1,9 +1,7 @@
 // Stacy Moon — App Logic (WebSocket Voice Edition)
 
 // ── Voice Bot 服务地址 ────────────────────────────
-// 生产环境：http://43.128.150.218:8002
-// 本地开发：http://localhost:8002
-const VOICE_API_URL = '/api/voice-session';
+const VOICE_API_URL = 'https://stacymoon.online/voice/session';
 
 // ═══════════════════════════════════════════════════════════
 // ─ 文字聊天（保持不变）────────────────────────────
@@ -370,7 +368,7 @@ async function startVoiceCall() {
   try {
     // 1. 请求后端启动 bot，获取 WebSocket 地址
     console.log('[VOICE] POST /session …');
-    const res = await fetch(`${VOICE_API_URL}/session`, {
+    const res = await fetch(VOICE_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
