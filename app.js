@@ -294,18 +294,26 @@ class BotAudioPlayer {
   }
 }
 
-// ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono）───
+// ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono，MediaRecorder 方式）───
 async function startMic(ws) {
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
   });
 
   micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const actualRate = micAudioCtx.sampleRate;
-  const targetRate = 16000;
-  const ratio = actualRate / targetRate;
+  // 不连到扬声器，避免 feedback
 
   const source = micAudioCtx.createMediaStreamSource(micStream);
+  const actualRate = micAudioCtx.sampleRate;
+  const targetRate = 16000;
+
+  // 用 AudioWorklet 替代已废弃的 ScriptProcessorNode
+  // 先试试 ScriptProcessorNode 并且不连 destination（之前的 feedback 可能导致静音）
+
+  // 创建一个 GainNode 来阻断输出（连上去但不发声）
+  const gainNode = micAudioCtx.createGain();
+  gainNode.gain.value = 0;  // 静音，阻止 feedback
+
   micProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
 
   micProcessor.onaudioprocess = (e) => {
@@ -314,10 +322,10 @@ async function startMic(ws) {
       return;
     }
     const input = e.inputBuffer.getChannelData(0);
-    const outLen = Math.floor(input.length / ratio);
+    const outLen = Math.floor(input.length / (actualRate / targetRate));
     const pcm = new Int16Array(outLen);
     for (let i = 0; i < outLen; i++) {
-      const s = input[Math.floor(i * ratio)];
+      const s = input[Math.floor(i * (actualRate / targetRate))];
       pcm[i] = Math.max(-32768, Math.min(32767, s * 32767));
     }
     // 检查音量
@@ -328,8 +336,10 @@ async function startMic(ws) {
   };
 
   source.connect(micProcessor);
-  micProcessor.connect(micAudioCtx.destination);
-  console.log('[VOICE] 麦克风已启动，原始', actualRate, 'Hz → 16kHz');
+  micProcessor.connect(gainNode);
+  gainNode.connect(micAudioCtx.destination);  // 必须连 destination 但 gain=0
+
+  console.log('[VOICE] 麦克风已启动，原始', actualRate, 'Hz →', targetRate, 'Hz (gainNode=0)');
 }
 
 function stopMic() {
