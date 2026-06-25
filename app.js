@@ -294,27 +294,20 @@ class BotAudioPlayer {
   }
 }
 
-// ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono，MediaRecorder 方式）───
+// ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono）───
 async function startMic(ws) {
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
   });
 
-  micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // 不连到扬声器，避免 feedback
-
-  const source = micAudioCtx.createMediaStreamSource(micStream);
-  const actualRate = micAudioCtx.sampleRate;
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  micAudioCtx = audioCtx;
+  const actualRate = audioCtx.sampleRate;
   const targetRate = 16000;
 
-  // 用 AudioWorklet 替代已废弃的 ScriptProcessorNode
-  // 先试试 ScriptProcessorNode 并且不连 destination（之前的 feedback 可能导致静音）
-
-  // 创建一个 GainNode 来阻断输出（连上去但不发声）
-  const gainNode = micAudioCtx.createGain();
-  gainNode.gain.value = 0;  // 静音，阻止 feedback
-
-  micProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
+  // 直接连 source → processor → destination（gain=1，让 processor 触发）
+  const source = audioCtx.createMediaStreamSource(micStream);
+  micProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
 
   micProcessor.onaudioprocess = (e) => {
     if (!ws || ws.readyState !== WebSocket.OPEN || micMuted) {
@@ -322,24 +315,25 @@ async function startMic(ws) {
       return;
     }
     const input = e.inputBuffer.getChannelData(0);
-    const outLen = Math.floor(input.length / (actualRate / targetRate));
+    const ratio = actualRate / targetRate;
+    const outLen = Math.floor(input.length / ratio);
+    if (outLen < 1) return;
     const pcm = new Int16Array(outLen);
     for (let i = 0; i < outLen; i++) {
-      const s = input[Math.floor(i * (actualRate / targetRate))];
+      const s = input[Math.floor(i * ratio)];
       pcm[i] = Math.max(-32768, Math.min(32767, s * 32767));
     }
-    // 检查音量
     let peak = 0;
     for (let i = 0; i < pcm.length; i++) { const a = Math.abs(pcm[i]); if (a > peak) peak = a; }
     ws.send(pcm.buffer);
-    if (!voiceDebugLogged) { voiceDebugLogged = true; console.log('[VOICE] PCM 开始发送 样本数=', outLen, '峰值=', peak); }
+    if (!voiceDebugLogged) { voiceDebugLogged = true; console.log('[VOICE] PCM 开始发送 样本数=', outLen, '峰值=', peak, '原始率=', actualRate); }
   };
 
   source.connect(micProcessor);
-  micProcessor.connect(gainNode);
-  gainNode.connect(micAudioCtx.destination);  // 必须连 destination 但 gain=0
+  micProcessor.connect(audioCtx.destination);
 
-  console.log('[VOICE] 麦克风已启动，原始', actualRate, 'Hz →', targetRate, 'Hz (gainNode=0)');
+  console.log('[VOICE] 麦克风已启动 原始', actualRate, 'Hz → 16kHz');
+  console.log('[VOICE] audioCtx.state=', audioCtx.state);
 }
 
 function stopMic() {
