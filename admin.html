@@ -89,13 +89,16 @@ h1{font-size:1.2rem;color:#fff;margin-bottom:6px}
   <h1>Stacy Moon Admin</h1>
   <div class="subtitle">邀请码管理</div>
 
-  <!-- ── 生成邀请码 ── -->
+  <!-- ── 批量导入邀请码 ── -->
   <div class="card">
-    <div class="card-title"><span class="dot"></span>生成邀请码</div>
-    <div class="form-row">
-      <input type="number" id="gen-count" value="5" min="1" max="50" placeholder="数量(1-50)" style="width:80px">
-      <input type="text" id="gen-webhook" placeholder="飞书 Webhook URL（可选）" style="flex:1">
-      <button class="btn btn-primary" id="gen-btn">生成</button>
+    <div class="card-title"><span class="dot"></span>批量导入邀请码</div>
+    <p style="font-size:0.72rem;color:#71717a;margin-bottom:12px">
+      每行一个微信号（如 alice_wx、bob123），批量写入 Supabase
+    </p>
+    <textarea id="code-textarea" rows="6" placeholder="alice_wx&#10;bob123&#10;carol_health&#10;..." style="width:100%;background:#1c1c24;border:1px solid rgba(255,255,255,0.06);border-radius:10px;color:#fff;font-family:'SF Mono',monospace;font-size:0.85rem;padding:12px;resize:vertical;outline:none"></textarea>
+    <div class="form-row" style="margin-top:12px">
+      <button class="btn btn-primary" id="gen-btn">批量导入</button>
+      <button class="btn btn-secondary" id="clear-textarea-btn">清空</button>
     </div>
     <div class="result-box" id="gen-result"></div>
     <div class="res-count hidden" id="gen-count-msg"></div>
@@ -145,21 +148,16 @@ document.getElementById('pwd-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('login-btn').click();
 });
 
-function uuid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
 
-function randomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let s = '';
-  for (let i = 0; i < 3; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return 'moon' + s;
-}
-
-// ── 生成邀请码 ────────────────────────────
+// ── 批量导入邀请码 ────────────────────────────
 document.getElementById('gen-btn').addEventListener('click', async () => {
-  const count = Math.max(1, Math.min(50, parseInt(document.getElementById('gen-count').value) || 5));
-  const webhook = document.getElementById('gen-webhook').value.trim();
+  const raw = document.getElementById('code-textarea').value.trim();
+  if (!raw) return;
+
+  // 按行分割，去空行、去前后空格
+  const codes = raw.split('
+').map(s => s.trim()).filter(s => s.length > 0);
+
   const box = document.getElementById('gen-result');
   const msg = document.getElementById('gen-count-msg');
   const err = document.getElementById('gen-error');
@@ -167,15 +165,14 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
   box.innerHTML = ''; box.classList.remove('show');
   msg.classList.add('hidden'); err.classList.add('hidden');
   document.getElementById('gen-btn').disabled = true;
-  document.getElementById('gen-btn').textContent = '生成中…';
+  document.getElementById('gen-btn').textContent = '导入中…';
 
   const success = [];
   const failed = [];
-  for (let i = 0; i < count; i++) {
-    const code = randomCode();
+  const skipped = [];
+  for (const code of codes) {
     const payload = {
       code: code,
-      feishu_webhook: webhook || null,
       created_at: new Date().toISOString()
     };
     try {
@@ -187,31 +184,47 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
       if (res.ok) {
         success.push(code);
       } else {
+        // 409 = 重复
         const errText = await res.text();
-        console.warn('Insert failed:', errText);
-        failed.push(code);
+        if (errText.includes('duplicate') || errText.includes('23505')) {
+          skipped.push(code);
+        } else {
+          failed.push(code);
+        }
       }
     } catch (e) {
-      console.warn('Network error:', e);
       failed.push(code);
     }
   }
 
   document.getElementById('gen-btn').disabled = false;
-  document.getElementById('gen-btn').textContent = '生成';
+  document.getElementById('gen-btn').textContent = '批量导入';
 
   if (success.length > 0) {
     box.classList.add('show');
-    box.innerHTML = success.map(c => `<div class="line"><span>${c}</span><button class="copy-btn" onclick="copyOne('${c}',this)">复制</button></div>`).join('');
+    box.innerHTML = success.map(c => `<div class="line"><span>${c}</span><span style="color:#22c55e;font-size:0.7rem">✓</span></div>`).join('');
     msg.classList.remove('hidden');
-    msg.textContent = `已生成 ${success.length} 个` + (failed.length ? `（${failed.length} 失败）` : '');
+    msg.textContent = `已导入 ${success.length} 个` +
+      (skipped.length ? `（${skipped.length} 个已存在跳过）` : '') +
+      (failed.length ? `（${failed.length} 失败）` : '');
+    // 清空 textarea
+    document.getElementById('code-textarea').value = '';
   }
   if (failed.length > 0) {
     err.classList.remove('hidden');
-    err.textContent = `${failed.length} 个生成失败，可能是 Supabase 权限不足，请检查 RLS 策略`;
+    err.textContent = `${failed.length} 个导入失败，请检查 Supabase 权限`;
+  }
+  if (success.length === 0 && skipped.length === 0 && failed.length === 0) {
+    msg.classList.remove('hidden');
+    msg.textContent = '没有可导入的内容';
   }
 
   if (success.length > 0) loadList();
+});
+
+// 清空 textarea
+document.getElementById('clear-textarea-btn').addEventListener('click', () => {
+  document.getElementById('code-textarea').value = '';
 });
 
 // ── 加载列表 ──────────────────────────────
