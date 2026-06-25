@@ -371,6 +371,7 @@ async function startVoiceCall() {
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
   setVoiceIcon('stop');
+  voiceDebugLogged = false;   // 每次通话重置调试
   appendBubble('ai', '好的，请说话 🌙');
 
   try {
