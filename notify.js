@@ -76,7 +76,7 @@ window.notifyDaughter = async function(userMessage, aiReply) {
   // 构建 post content
   const paragraphs = [
     // 正文
-    [{ tag: 'text', text: '🌙 妈妈刚刚和 Stacy 说话了' }],
+    [{ tag: 'text', text: '🌙 有人刚刚和 Stacy 说话了' }],
     [{ tag: 'text', text: '💬 她说：' }, { tag: 'text', text: shortMsg, style: ['bold'] }],
     [{ tag: 'text', text: '' }], // empty line
   ];
@@ -97,7 +97,7 @@ window.notifyDaughter = async function(userMessage, aiReply) {
     content: {
       post: {
         zh_cn: {
-          title: '🌙 妈妈刚刚和 Stacy 说话了',
+          title: '🌙 有人刚刚和 Stacy 说话了',
           content: paragraphs,
         }
       }
