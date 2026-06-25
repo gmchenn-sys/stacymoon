@@ -327,10 +327,32 @@
         clearTimeout(timeoutId);
         const data = await res.json();
         if (data.length) {
-          localStorage.setItem('stacy_invite_code', code);
+          const matchedCode = data[0].code;
+          localStorage.setItem('stacy_invite_code', matchedCode);
+
+          // 从 Supabase 拉取已有档案（解决桌面快捷方式 localStorage 丢失问题）
+          let profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
+          if (!profile || !profile.name) {
+            try {
+              const profileRes = await fetch(
+                `${window.SUPABASE_URL}/rest/v1/profiles?code=ilike.${encodeURIComponent(matchedCode)}&select=profile`,
+                {
+                  headers: {
+                    'apikey': window.SUPABASE_KEY,
+                    'Authorization': `Bearer ${window.SUPABASE_KEY}`
+                  }
+                }
+              );
+              const profileData = await profileRes.json();
+              if (profileData.length && profileData[0].profile) {
+                profile = profileData[0].profile;
+                localStorage.setItem('stacy_profile', JSON.stringify(profile));
+              }
+            } catch {}
+          }
+
           overlay.style.display = 'none';
           // 检查是否需要建档
-          const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
           if (!profile || !profile.name) {
             window.location.replace('onboarding.html');
           } else {
