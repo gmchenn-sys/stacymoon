@@ -303,25 +303,26 @@ async function startMic(ws) {
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   micAudioCtx = audioCtx;
 
-  // 必须 resume，否则 Chrome 新的 autoplay 策略会暂停 AudioContext
   if (audioCtx.state === 'suspended') await audioCtx.resume();
   console.log('[VOICE] audioCtx.state=', audioCtx.state);
-
-  // 输出一个静音脉冲，确保 audio graph 被"激活"
-  const silentBuf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
-  const silentSrc = audioCtx.createBufferSource();
-  silentSrc.buffer = silentBuf;
-  silentSrc.connect(audioCtx.destination);
-  silentSrc.start(0);
 
   const actualRate = audioCtx.sampleRate;
   const targetRate = 16000;
   const source = audioCtx.createMediaStreamSource(micStream);
+
+  // 用 MediaRecorder 方式备选——先测试 ScriptProcessorNode 到底能不能收到数据
+  // 把 source 连到一个分析器以"激活"音频通路
   micProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
 
+  let framesReceived = 0;
+
   micProcessor.onaudioprocess = (e) => {
+    framesReceived++;
+    if (framesReceived === 1) {
+      console.log('[VOICE] onaudioprocess 首次触发!');
+    }
     if (!ws || ws.readyState !== WebSocket.OPEN || micMuted) {
-      console.log('[VOICE] PCM 跳过: wsReadyState=', ws?.readyState, 'micMuted=', micMuted);
+      if (framesReceived <= 3) console.log('[VOICE] PCM 跳过: wsReadyState=', ws?.readyState, 'micMuted=', micMuted);
       return;
     }
     const input = e.inputBuffer.getChannelData(0);
@@ -341,6 +342,13 @@ async function startMic(ws) {
 
   source.connect(micProcessor);
   micProcessor.connect(audioCtx.destination);
+
+  // 3 秒后如果还没触发就报警
+  setTimeout(() => {
+    if (framesReceived === 0) {
+      console.warn('[VOICE] 警告: 3秒内未收到任何音频帧，onaudioprocess 未触发');
+    }
+  }, 3000);
 
   console.log('[VOICE] 麦克风已启动 原始', actualRate, 'Hz → 16kHz');
 }
