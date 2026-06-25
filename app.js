@@ -302,10 +302,20 @@ async function startMic(ws) {
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   micAudioCtx = audioCtx;
+
+  // 必须 resume，否则 Chrome 新的 autoplay 策略会暂停 AudioContext
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+  console.log('[VOICE] audioCtx.state=', audioCtx.state);
+
+  // 输出一个静音脉冲，确保 audio graph 被"激活"
+  const silentBuf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+  const silentSrc = audioCtx.createBufferSource();
+  silentSrc.buffer = silentBuf;
+  silentSrc.connect(audioCtx.destination);
+  silentSrc.start(0);
+
   const actualRate = audioCtx.sampleRate;
   const targetRate = 16000;
-
-  // 直接连 source → processor → destination（gain=1，让 processor 触发）
   const source = audioCtx.createMediaStreamSource(micStream);
   micProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
 
@@ -326,14 +336,13 @@ async function startMic(ws) {
     let peak = 0;
     for (let i = 0; i < pcm.length; i++) { const a = Math.abs(pcm[i]); if (a > peak) peak = a; }
     ws.send(pcm.buffer);
-    if (!voiceDebugLogged) { voiceDebugLogged = true; console.log('[VOICE] PCM 开始发送 样本数=', outLen, '峰值=', peak, '原始率=', actualRate); }
+    if (!voiceDebugLogged) { voiceDebugLogged = true; console.log('[VOICE] PCM 开始发送 样本数=', outLen, '峰值=', peak); }
   };
 
   source.connect(micProcessor);
   micProcessor.connect(audioCtx.destination);
 
   console.log('[VOICE] 麦克风已启动 原始', actualRate, 'Hz → 16kHz');
-  console.log('[VOICE] audioCtx.state=', audioCtx.state);
 }
 
 function stopMic() {
