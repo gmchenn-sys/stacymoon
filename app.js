@@ -227,6 +227,7 @@ let micStream = null;           // 麦克风 MediaStream
 let micAudioCtx = null;         // 麦克风 AudioContext
 let micProcessor = null;        // ScriptProcessorNode
 let audioPlayer = null;         // 音频播放器
+let voiceDebugLogged = false;   // 调试用
 let micMuted = false;           // 麦克风静音
 let voiceStatusText = '';       // 当前状态文案
 
@@ -308,7 +309,10 @@ async function startMic(ws) {
   micProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
 
   micProcessor.onaudioprocess = (e) => {
-    if (!ws || ws.readyState !== WebSocket.OPEN || micMuted) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN || micMuted) {
+      console.log('[VOICE] PCM 跳过: wsReadyState=', ws?.readyState, 'micMuted=', micMuted);
+      return;
+    }
     const input = e.inputBuffer.getChannelData(0);
     const outLen = Math.floor(input.length / ratio);
     const pcm = new Int16Array(outLen);
@@ -316,7 +320,11 @@ async function startMic(ws) {
       const s = input[Math.floor(i * ratio)];
       pcm[i] = Math.max(-32768, Math.min(32767, s * 32767));
     }
+    // 检查音量
+    let peak = 0;
+    for (let i = 0; i < pcm.length; i++) { const a = Math.abs(pcm[i]); if (a > peak) peak = a; }
     ws.send(pcm.buffer);
+    if (!voiceDebugLogged) { voiceDebugLogged = true; console.log('[VOICE] PCM 开始发送 样本数=', outLen, '峰值=', peak); }
   };
 
   source.connect(micProcessor);
