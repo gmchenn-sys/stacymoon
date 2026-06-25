@@ -155,8 +155,7 @@ document.getElementById('gen-btn').addEventListener('click', async () => {
   if (!raw) return;
 
   // 按行分割，去空行、去前后空格
-  const codes = raw.split('
-').map(s => s.trim()).filter(s => s.length > 0);
+  const codes = raw.split(/\n+/).map(s => s.trim()).filter(s => s.length > 0);
 
   const box = document.getElementById('gen-result');
   const msg = document.getElementById('gen-count-msg');
