@@ -225,9 +225,8 @@ let lastUserMessage = '';
 let voiceWs = null;             // 音频 WebSocket
 let micStream = null;           // 麦克风 MediaStream
 let micAudioCtx = null;         // 麦克风 AudioContext
-let micProcessor = null;        // ScriptProcessorNode
+let micWorkletNode = null;      // AudioWorkletNode
 let audioPlayer = null;         // 音频播放器
-let voiceDebugLogged = false;   // 调试用
 let micMuted = false;           // 麦克风静音
 let voiceStatusText = '';       // 当前状态文案
 
@@ -294,7 +293,7 @@ class BotAudioPlayer {
   }
 }
 
-// ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono）───
+// ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono，AudioWorklet）───
 async function startMic(ws) {
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
@@ -304,59 +303,47 @@ async function startMic(ws) {
   micAudioCtx = audioCtx;
 
   if (audioCtx.state === 'suspended') await audioCtx.resume();
-  console.log('[VOICE] audioCtx.state=', audioCtx.state);
+  console.log('[VOICE] audioCtx.state=', audioCtx.state, 'sampleRate=', audioCtx.sampleRate);
 
-  const actualRate = audioCtx.sampleRate;
-  const targetRate = 16000;
+  // 加载 AudioWorklet 模块（替代废弃的 ScriptProcessorNode）
+  await audioCtx.audioWorklet.addModule('worklet.js');
+
   const source = audioCtx.createMediaStreamSource(micStream);
+  const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
+    processorOptions: { targetRate: 16000 }
+  });
+  micWorkletNode = workletNode;
 
-  // 用 MediaRecorder 方式备选——先测试 ScriptProcessorNode 到底能不能收到数据
-  // 把 source 连到一个分析器以"激活"音频通路
-  micProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+  let pcmSent = false;
 
-  let framesReceived = 0;
-
-  micProcessor.onaudioprocess = (e) => {
-    framesReceived++;
-    if (framesReceived === 1) {
-      console.log('[VOICE] onaudioprocess 首次触发!');
-    }
+  workletNode.port.onmessage = (e) => {
     if (!ws || ws.readyState !== WebSocket.OPEN || micMuted) {
-      if (framesReceived <= 3) console.log('[VOICE] PCM 跳过: wsReadyState=', ws?.readyState, 'micMuted=', micMuted);
+      if (!pcmSent) console.log('[VOICE] PCM 跳过: wsReadyState=', ws?.readyState, 'micMuted=', micMuted);
       return;
     }
-    const input = e.inputBuffer.getChannelData(0);
-    const ratio = actualRate / targetRate;
-    const outLen = Math.floor(input.length / ratio);
-    if (outLen < 1) return;
-    const pcm = new Int16Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      const s = input[Math.floor(i * ratio)];
-      pcm[i] = Math.max(-32768, Math.min(32767, s * 32767));
+    // e.data 是 Int16Array 的 ArrayBuffer（已通过 transfer 传递）
+    ws.send(e.data);
+    if (!pcmSent) {
+      pcmSent = true;
+      const pcm = new Int16Array(e.data);
+      let peak = 0;
+      for (let i = 0; i < Math.min(pcm.length, 200); i++) {
+        const a = Math.abs(pcm[i]); if (a > peak) peak = a;
+      }
+      console.log('[VOICE] PCM 开始发送 样本数=', pcm.length, '峰值=', peak);
     }
-    let peak = 0;
-    for (let i = 0; i < pcm.length; i++) { const a = Math.abs(pcm[i]); if (a > peak) peak = a; }
-    ws.send(pcm.buffer);
-    if (!voiceDebugLogged) { voiceDebugLogged = true; console.log('[VOICE] PCM 开始发送 样本数=', outLen, '峰值=', peak); }
   };
 
-  source.connect(micProcessor);
-  micProcessor.connect(audioCtx.destination);
+  source.connect(workletNode);
+  workletNode.connect(audioCtx.destination);
 
-  // 3 秒后如果还没触发就报警
-  setTimeout(() => {
-    if (framesReceived === 0) {
-      console.warn('[VOICE] 警告: 3秒内未收到任何音频帧，onaudioprocess 未触发');
-    }
-  }, 3000);
-
-  console.log('[VOICE] 麦克风已启动 原始', actualRate, 'Hz → 16kHz');
+  console.log('[VOICE] 麦克风已启动 AudioWorklet 原始', audioCtx.sampleRate, 'Hz → 16kHz');
 }
 
 function stopMic() {
-  if (micProcessor) { try { micProcessor.disconnect(); } catch {} micProcessor = null; }
-  if (micAudioCtx)  { try { micAudioCtx.close(); } catch {} micAudioCtx = null; }
-  if (micStream)    { micStream.getTracks().forEach(t => { try { t.stop(); } catch {} }); micStream = null; }
+  if (micWorkletNode) { try { micWorkletNode.disconnect(); } catch {} micWorkletNode = null; }
+  if (micAudioCtx)   { try { micAudioCtx.close(); } catch {} micAudioCtx = null; }
+  if (micStream)     { micStream.getTracks().forEach(t => { try { t.stop(); } catch {} }); micStream = null; }
 }
 
 // ── WebSocket 连接（带重试）──────────────────────
@@ -392,7 +379,6 @@ async function startVoiceCall() {
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
   setVoiceIcon('stop');
-  voiceDebugLogged = false;   // 每次通话重置调试
   appendBubble('ai', '好的，请说话 🌙');
 
   try {
