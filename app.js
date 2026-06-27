@@ -296,7 +296,12 @@ class BotAudioPlayer {
 // ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono，AudioWorklet）───
 async function startMic(ws) {
   micStream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    audio: {
+      channelCount: { ideal: 1 },
+      echoCancellation: false,
+      noiseSuppression: true,
+      autoGainControl: false
+    }
   });
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -317,6 +322,15 @@ async function startMic(ws) {
   let pcmSent = false;
 
   workletNode.port.onmessage = (e) => {
+    // 调试消息：worklet 发来的诊断数据
+    if (e.data && e.data.debug) {
+      console.log('[VOICE] worklet 第', e.data.callCount, '次',
+        '声道=', e.data.numChannels,
+        'bufLen=', e.data.bufLen,
+        'floatPeak=', e.data.floatPeak,
+        'floatAvg=', e.data.floatAvg);
+      return;
+    }
     if (!ws || ws.readyState !== WebSocket.OPEN || micMuted) {
       if (!pcmSent) console.log('[VOICE] PCM 跳过: wsReadyState=', ws?.readyState, 'micMuted=', micMuted);
       return;
@@ -335,7 +349,11 @@ async function startMic(ws) {
   };
 
   source.connect(workletNode);
-  workletNode.connect(audioCtx.destination);
+  // 用静音 GainNode 维持音频链路活跃，但不产生回声
+  const muteGain = audioCtx.createGain();
+  muteGain.gain.value = 0;
+  workletNode.connect(muteGain);
+  muteGain.connect(audioCtx.destination);
 
   console.log('[VOICE] 麦克风已启动 AudioWorklet 原始', audioCtx.sampleRate, 'Hz → 16kHz');
 }
