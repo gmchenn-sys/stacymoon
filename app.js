@@ -455,6 +455,14 @@ async function startVoiceCall() {
 
     // 2. 解锁 AudioContext（iOS 需要用户手势）
     audioPlayer = new BotAudioPlayer();
+    audioPlayer.onSpeakingStart = () => {
+      isSpeaking = true;
+      showSoundwave();
+    };
+    audioPlayer.onSpeakingEnd = () => {
+      isSpeaking = false;
+      hideSoundwave();
+    };
     audioPlayer.resume();
 
     // 3. 连接音频 WebSocket（带重试）
@@ -465,8 +473,6 @@ async function startVoiceCall() {
     voiceWs.onmessage = (e) => {
       if (e.data instanceof ArrayBuffer && e.data.byteLength > 0) {
         audioPlayer.enqueue(e.data);
-        isSpeaking = true;
-        showSoundwave();
       }
     };
 
