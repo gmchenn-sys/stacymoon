@@ -22,7 +22,7 @@ class PcmResampler extends AudioWorkletProcessor {
     const bufLen = channel0.length;
 
     // 1% 概率打印原始音频数据，确认麦克风是否有真实输入
-    if (Math.random() < 0.01) {
+    if (true || Math.random() < 0.01) {
       let peak = 0;
       for (let i = 0; i < bufLen; i++) {
         const a = Math.abs(channel0[i]);
