@@ -341,7 +341,7 @@ async function startMic(ws) {
   const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
     processorOptions: {
       targetRate: 16000,
-      voiceThreshold: 0.012
+      voiceThreshold: 0.003
     }
   });
   micWorkletNode = workletNode;

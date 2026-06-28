@@ -5,7 +5,7 @@ class PcmResampler extends AudioWorkletProcessor {
   constructor(options) {
     super(options);
     this.targetRate = options.processorOptions?.targetRate || 16000;
-    this.voiceThreshold = options.processorOptions?.voiceThreshold || 0.012;
+    this.voiceThreshold = options.processorOptions?.voiceThreshold || 0.003;
     this.inputRate = sampleRate;
     this.ratio = this.inputRate / this.targetRate;
     this.callCount = 0;
