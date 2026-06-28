@@ -462,8 +462,10 @@ async function startVoiceCall() {
     const { ws_url } = await res.json();
     console.log('[VOICE] bot 已启动，ws_url =', ws_url);
 
-    // 2. 解锁 AudioContext（iOS 需要用户手势）
-    audioPlayer = new BotAudioPlayer();
+    // 2. 复用点击时已解锁的 AudioContext（iOS 需要用户手势）
+    if (!audioPlayer || audioPlayer.ctx.state === 'closed') {
+      audioPlayer = new BotAudioPlayer();
+    }
     audioPlayer.onSpeakingStart = () => {
       isSpeaking = true;
       showSoundwave();
@@ -472,7 +474,7 @@ async function startVoiceCall() {
       isSpeaking = false;
       hideSoundwave();
     };
-    audioPlayer.resume();
+    await audioPlayer.resume();
 
     // 3. 连接音频 WebSocket（带重试）
     const ws = await connectVoiceWs(ws_url);
