@@ -322,6 +322,11 @@ async function startMic(ws) {
   let pcmSent = false;
 
   workletNode.port.onmessage = (e) => {
+    // __debug 消息：1% 采样诊断，确认原始音频是否有数据
+    if (e.data && e.data.__debug) {
+      console.log('[WORKLET DEBUG] len=', e.data.len, 'peak=', e.data.peak);
+      return;
+    }
     // 调试消息：worklet 发来的诊断数据
     if (e.data && e.data.debug) {
       console.log('[VOICE] worklet 第', e.data.callCount, '次',

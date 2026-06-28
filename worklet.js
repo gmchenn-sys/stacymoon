@@ -20,6 +20,16 @@ class PcmResampler extends AudioWorkletProcessor {
     if (!channel0) return true;
     const bufLen = channel0.length;
 
+    // 1% 概率打印原始音频数据，确认麦克风是否有真实输入
+    if (Math.random() < 0.01) {
+      let peak = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const a = Math.abs(channel0[i]);
+        if (a > peak) peak = a;
+      }
+      this.port.postMessage({ __debug: true, len: bufLen, peak: peak });
+    }
+
     // 前 10 次发调试消息
     if (this.callCount <= 10) {
       let peak = 0, sum = 0;
