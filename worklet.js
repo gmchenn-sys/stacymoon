@@ -83,7 +83,10 @@ class PcmStreamPlayer extends AudioWorkletProcessor {
     super(options);
     this.sourceRate = options.processorOptions?.sourceRate || 44100;
     this.initialBufferFrames = Math.floor(
-      (options.processorOptions?.initialBufferSec || 0.35) * sampleRate
+      (options.processorOptions?.initialBufferSec || 0.18) * sampleRate
+    );
+    this.rebufferFrames = Math.floor(
+      (options.processorOptions?.rebufferSec || 0.04) * sampleRate
     );
     this.maxBufferFrames = Math.floor(
       (options.processorOptions?.maxBufferSec || 8) * sampleRate
@@ -92,6 +95,8 @@ class PcmStreamPlayer extends AudioWorkletProcessor {
     this.readIndex = 0;
     this.queuedFrames = 0;
     this.started = false;
+    this.hasStartedOnce = false;
+    this.underrunActive = false;
     this.underruns = 0;
 
     this.port.onmessage = (event) => {
@@ -171,12 +176,15 @@ class PcmStreamPlayer extends AudioWorkletProcessor {
     const right = output[1];
 
     if (!this.started) {
-      if (this.queuedFrames < this.initialBufferFrames) {
+      const neededFrames = this.hasStartedOnce ? this.rebufferFrames : this.initialBufferFrames;
+      if (this.queuedFrames < neededFrames) {
         left.fill(0);
         if (right) right.fill(0);
         return true;
       }
       this.started = true;
+      this.hasStartedOnce = true;
+      this.underrunActive = false;
       this.port.postMessage({ type: 'started' });
     }
 
@@ -185,8 +193,11 @@ class PcmStreamPlayer extends AudioWorkletProcessor {
         left[i] = 0;
         if (right) right[i] = 0;
         this.started = false;
-        this.underruns++;
-        this.port.postMessage({ type: 'underrun', count: this.underruns });
+        if (!this.underrunActive) {
+          this.underrunActive = true;
+          this.underruns++;
+          this.port.postMessage({ type: 'underrun', count: this.underruns });
+        }
         continue;
       }
 
