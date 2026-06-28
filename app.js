@@ -241,63 +241,75 @@ function setVoiceIcon(type) {
   voiceIcon.innerHTML = type === 'stop' ? STOP_ICON : MIC_ICON;
 }
 
-// ── 音频播放器（顺序播放 bot 的 WAV 块）────────
+// ── 音频播放器（AudioWorklet 连续播放 bot 的 PCM 流）────────
 class BotAudioPlayer {
   constructor() {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.nextTime = 0;
+    this.node = null;
     this.onSpeakingStart = null;
     this.onSpeakingEnd = null;
     this._speakTimer = null;
-    this._decodeQueue = Promise.resolve();
+    this._ready = null;
     this._chunkCount = 0;
-    this._initialBufferSec = 0.9;
-    this._minScheduleAheadSec = 0.18;
+    this._playUntilMs = 0;
+    this._sourceRate = 44100;
   }
 
   enqueue(arrayBuffer) {
     if (!arrayBuffer || arrayBuffer.byteLength === 0) return;
     const chunk = arrayBuffer.slice(0);
-    this._decodeQueue = this._decodeQueue
-      .then(() => this._decodeAndSchedule(chunk))
+    this.init()
+      .then(() => this._enqueuePcm(chunk))
       .catch(e => console.warn('[VOICE] 音频播放队列错误:', e));
   }
 
-  async _decodeAndSchedule(arrayBuffer) {
-    try {
+  async init() {
+    if (this._ready) return this._ready;
+
+    this._ready = (async () => {
       await this.resume();
-      const buf = await this.ctx.decodeAudioData(arrayBuffer);
-      const src = this.ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(this.ctx.destination);
+      await this.ctx.audioWorklet.addModule('worklet.js?v=9');
+      this.node = new AudioWorkletNode(this.ctx, 'pcm-stream-player', {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        processorOptions: {
+          sourceRate: this._sourceRate,
+          initialBufferSec: 0.35,
+          maxBufferSec: 8
+        }
+      });
+      this.node.port.onmessage = (event) => {
+        if (event.data?.type === 'started') {
+          if (this.onSpeakingStart) this.onSpeakingStart();
+        } else if (event.data?.type === 'underrun') {
+          console.warn('[VOICE] bot PCM 播放 underrun 次数=', event.data.count);
+        }
+      };
+      this.node.connect(this.ctx.destination);
+    })();
 
-      const now = this.ctx.currentTime;
-      if (this.nextTime < now + this._minScheduleAheadSec) {
-        this.nextTime = now + this._initialBufferSec;
-      }
-      const start = this.nextTime;
-      src.start(start);
-      this.nextTime = start + buf.duration;
+    return this._ready;
+  }
 
-      this._chunkCount++;
-      if (this._chunkCount === 1) {
-        console.log('[VOICE] 收到并开始缓冲 bot 音频 首块字节=', arrayBuffer.byteLength, '时长=', buf.duration.toFixed(3));
-      }
+  _enqueuePcm(arrayBuffer) {
+    this.node.port.postMessage({ type: 'pcm', buffer: arrayBuffer }, [arrayBuffer]);
 
-      // 标记 bot 正在说话
-      if (this.onSpeakingStart) this.onSpeakingStart();
-
-      // 播完后延迟标记停止
-      if (this._speakTimer) clearTimeout(this._speakTimer);
-      this._speakTimer = setTimeout(() => {
-        this.nextTime = 0;
-        if (this.onSpeakingEnd) this.onSpeakingEnd();
-      }, (this.nextTime - now) * 1000 + 300);
-
-      src.onended = () => {};
-    } catch (e) {
-      console.warn('[VOICE] bot 音频解码失败 字节=', arrayBuffer?.byteLength || 0, e);
+    this._chunkCount++;
+    if (this._chunkCount === 1) {
+      console.log('[VOICE] 收到并开始缓冲 bot PCM 音频 首块字节=', arrayBuffer.byteLength);
     }
+
+    const now = performance.now();
+    const durationMs = (arrayBuffer.byteLength / 2 / this._sourceRate) * 1000;
+    this._playUntilMs = Math.max(this._playUntilMs, now + 350) + durationMs;
+
+    if (this.onSpeakingStart) this.onSpeakingStart();
+    if (this._speakTimer) clearTimeout(this._speakTimer);
+    this._speakTimer = setTimeout(() => {
+      this._playUntilMs = 0;
+      if (this.onSpeakingEnd) this.onSpeakingEnd();
+    }, Math.max(500, this._playUntilMs - now + 700));
   }
 
   resume() {
@@ -306,10 +318,14 @@ class BotAudioPlayer {
   }
 
   stop() {
-    this.nextTime = 0;
-    this._decodeQueue = Promise.resolve();
+    this._playUntilMs = 0;
     this._chunkCount = 0;
     if (this._speakTimer) { clearTimeout(this._speakTimer); this._speakTimer = null; }
+    if (this.node) {
+      try { this.node.disconnect(); } catch {}
+      this.node = null;
+    }
+    this._ready = null;
     if (this.onSpeakingEnd) this.onSpeakingEnd();
   }
 
@@ -337,7 +353,7 @@ async function startMic(ws) {
   console.log('[VOICE] audioCtx.state=', audioCtx.state, 'sampleRate=', audioCtx.sampleRate);
 
   // 加载 AudioWorklet 模块（替代废弃的 ScriptProcessorNode）
-  await audioCtx.audioWorklet.addModule('worklet.js');
+  await audioCtx.audioWorklet.addModule('worklet.js?v=9');
 
   const source = audioCtx.createMediaStreamSource(micStream);
   const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
