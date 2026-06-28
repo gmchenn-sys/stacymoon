@@ -249,19 +249,40 @@ class BotAudioPlayer {
     this.onSpeakingStart = null;
     this.onSpeakingEnd = null;
     this._speakTimer = null;
+    this._decodeQueue = Promise.resolve();
+    this._chunkCount = 0;
+    this._initialBufferSec = 0.45;
+    this._minScheduleAheadSec = 0.08;
   }
 
-  async enqueue(arrayBuffer) {
+  enqueue(arrayBuffer) {
     if (!arrayBuffer || arrayBuffer.byteLength === 0) return;
+    const chunk = arrayBuffer.slice(0);
+    this._decodeQueue = this._decodeQueue
+      .then(() => this._decodeAndSchedule(chunk))
+      .catch(e => console.warn('[VOICE] 音频播放队列错误:', e));
+  }
+
+  async _decodeAndSchedule(arrayBuffer) {
     try {
-      const buf = await this.ctx.decodeAudioData(arrayBuffer.slice(0));
+      await this.resume();
+      const buf = await this.ctx.decodeAudioData(arrayBuffer);
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
       src.connect(this.ctx.destination);
+
       const now = this.ctx.currentTime;
-      const start = Math.max(now, this.nextTime);
+      if (this.nextTime < now + this._minScheduleAheadSec) {
+        this.nextTime = now + this._initialBufferSec;
+      }
+      const start = this.nextTime;
       src.start(start);
       this.nextTime = start + buf.duration;
+
+      this._chunkCount++;
+      if (this._chunkCount === 1) {
+        console.log('[VOICE] 收到并开始缓冲 bot 音频 首块字节=', arrayBuffer.byteLength, '时长=', buf.duration.toFixed(3));
+      }
 
       // 标记 bot 正在说话
       if (this.onSpeakingStart) this.onSpeakingStart();
@@ -275,16 +296,19 @@ class BotAudioPlayer {
 
       src.onended = () => {};
     } catch (e) {
-      // 空块或无效 WAV 忽略
+      console.warn('[VOICE] bot 音频解码失败 字节=', arrayBuffer?.byteLength || 0, e);
     }
   }
 
   resume() {
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') return this.ctx.resume();
+    return Promise.resolve();
   }
 
   stop() {
     this.nextTime = 0;
+    this._decodeQueue = Promise.resolve();
+    this._chunkCount = 0;
     if (this._speakTimer) { clearTimeout(this._speakTimer); this._speakTimer = null; }
     if (this.onSpeakingEnd) this.onSpeakingEnd();
   }
