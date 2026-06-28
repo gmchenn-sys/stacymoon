@@ -220,6 +220,8 @@ const voiceBtn = document.getElementById('voice-btn');
 const voiceIcon = document.getElementById('voice-icon');
 
 let voiceActive = false;        // 是否在语音通话中
+let voiceStarting = false;      // 防止启动过程中重复点击/重复连接
+let voiceCallId = 0;            // 区分旧 WebSocket 事件和当前通话
 let isSpeaking = false;         // bot 是否正在说话（TTS 播放中）
 let lastUserMessage = '';
 let voiceWs = null;             // 音频 WebSocket
@@ -422,11 +424,18 @@ async function connectVoiceWs(wsUrl, maxRetries = 5) {
 
 // ── 开始语音通话 ─────────────────────────────────
 async function startVoiceCall() {
+  if (voiceActive || voiceStarting) {
+    console.log('[VOICE] 已在启动/通话中，忽略重复启动');
+    return;
+  }
+
   const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
   const todayLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayLog = todayLogs.find(l => l.date === todayStr) || {};
+  const callId = ++voiceCallId;
 
+  voiceStarting = true;
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
   setVoiceIcon('stop');
@@ -466,11 +475,18 @@ async function startVoiceCall() {
     audioPlayer.resume();
 
     // 3. 连接音频 WebSocket（带重试）
-    voiceWs = await connectVoiceWs(ws_url);
+    const ws = await connectVoiceWs(ws_url);
+    if (callId !== voiceCallId || !voiceActive) {
+      try { ws.close(); } catch {}
+      return;
+    }
+
+    voiceWs = ws;
     console.log('[VOICE] WebSocket 已连接');
 
     // 4. 接收 bot 音频
     voiceWs.onmessage = (e) => {
+      if (callId !== voiceCallId) return;
       if (e.data instanceof ArrayBuffer && e.data.byteLength > 0) {
         audioPlayer.enqueue(e.data);
       }
@@ -478,27 +494,32 @@ async function startVoiceCall() {
 
     voiceWs.onclose = () => {
       console.log('[VOICE] WebSocket 已关闭');
-      if (voiceActive) endVoiceCall();
+      if (callId === voiceCallId && voiceActive) endVoiceCall();
     };
 
     voiceWs.onerror = () => {
       console.error('[VOICE] WebSocket 错误');
-      if (voiceActive) endVoiceCall();
+      if (callId === voiceCallId && voiceActive) endVoiceCall();
     };
 
     // 5. 打开麦克风，开始发送音频
     await startMic(voiceWs);
+    if (callId !== voiceCallId || !voiceActive) return;
     console.log('[VOICE] 通话已建立');
 
   } catch (e) {
     console.error('[VOICE] 启动失败:', e);
     appendBubble('ai', '语音连接失败，请稍后再试 🌙');
     endVoiceCall();
+  } finally {
+    if (callId === voiceCallId) voiceStarting = false;
   }
 }
 
 // ── 结束语音通话 ─────────────────────────────────
 function endVoiceCall() {
+  voiceCallId++;
+  voiceStarting = false;
   voiceActive = false;
   isSpeaking = false;
   micMuted = false;
@@ -516,6 +537,11 @@ function endVoiceCall() {
 
 // ── 麦克风按钮点击 ───────────────────────────────
 voiceBtn.addEventListener('click', async () => {
+  if (voiceStarting) {
+    console.log('[VOICE] 正在启动，忽略重复点击');
+    return;
+  }
+
   // iOS AudioContext 解锁
   if (!audioPlayer) {
     audioPlayer = new BotAudioPlayer();
