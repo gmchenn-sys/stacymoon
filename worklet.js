@@ -83,13 +83,13 @@ class PcmStreamPlayer extends AudioWorkletProcessor {
     super(options);
     this.sourceRate = options.processorOptions?.sourceRate || 44100;
     this.initialBufferFrames = Math.floor(
-      (options.processorOptions?.initialBufferSec || 0.18) * sampleRate
+      (options.processorOptions?.initialBufferSec || 0.45) * sampleRate
     );
     this.rebufferFrames = Math.floor(
-      (options.processorOptions?.rebufferSec || 0.04) * sampleRate
+      (options.processorOptions?.rebufferSec || 0.16) * sampleRate
     );
     this.maxBufferFrames = Math.floor(
-      (options.processorOptions?.maxBufferSec || 8) * sampleRate
+      (options.processorOptions?.maxBufferSec || 12) * sampleRate
     );
     this.queue = [];
     this.readIndex = 0;

@@ -268,16 +268,16 @@ class BotAudioPlayer {
 
     this._ready = (async () => {
       await this.resume();
-      await this.ctx.audioWorklet.addModule('worklet.js?v=10');
+      await this.ctx.audioWorklet.addModule('worklet.js?v=11');
       this.node = new AudioWorkletNode(this.ctx, 'pcm-stream-player', {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [1],
         processorOptions: {
           sourceRate: this._sourceRate,
-          initialBufferSec: 0.18,
-          rebufferSec: 0.04,
-          maxBufferSec: 8
+          initialBufferSec: 0.45,
+          rebufferSec: 0.16,
+          maxBufferSec: 12
         }
       });
       this.node.port.onmessage = (event) => {
@@ -354,7 +354,7 @@ async function startMic(ws) {
   console.log('[VOICE] audioCtx.state=', audioCtx.state, 'sampleRate=', audioCtx.sampleRate);
 
   // 加载 AudioWorklet 模块（替代废弃的 ScriptProcessorNode）
-  await audioCtx.audioWorklet.addModule('worklet.js?v=10');
+  await audioCtx.audioWorklet.addModule('worklet.js?v=11');
 
   const source = audioCtx.createMediaStreamSource(micStream);
   const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
