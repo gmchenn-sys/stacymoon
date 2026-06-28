@@ -1,4 +1,4 @@
-// Stacy Moon — App Logic (WebSocket Voice Edition)
+// Stacy Moon — App Logic (Daily WebRTC Voice Edition)
 
 // ── Voice Bot 服务地址 ────────────────────────────
 const VOICE_API_URL = 'https://stacymoon.online/voice/session';
@@ -224,7 +224,8 @@ let voiceStarting = false;      // 防止启动过程中重复点击/重复连�
 let voiceCallId = 0;            // 区分旧 WebSocket 事件和当前通话
 let isSpeaking = false;         // bot 是否正在说话（TTS 播放中）
 let lastUserMessage = '';
-let voiceWs = null;             // 音频 WebSocket
+let voiceWs = null;             // 音频 WebSocket（旧传输备用）
+let dailyCall = null;           // Daily WebRTC call object
 let micStream = null;           // 麦克风 MediaStream
 let micAudioCtx = null;         // 麦克风 AudioContext
 let micWorkletNode = null;      // AudioWorkletNode
@@ -476,8 +477,52 @@ async function startVoiceCall() {
       throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     }
 
-    const { ws_url } = await res.json();
-    console.log('[VOICE] bot 已启动，ws_url =', ws_url);
+    const session = await res.json();
+    console.log('[VOICE] bot 已启动, session =', session);
+
+    if (session.transport === 'daily') {
+      if (typeof DailyIframe === 'undefined') {
+        throw new Error('DailyIframe SDK 未加载');
+      }
+
+      dailyCall = DailyIframe.createCallObject({
+        audioSource: true,
+        videoSource: false,
+        dailyConfig: {
+          experimentalChromeVideoMuteLightOff: true
+        }
+      });
+
+      dailyCall.on('joined-meeting', () => {
+        console.log('[VOICE] Daily 已加入房间');
+      });
+      dailyCall.on('left-meeting', () => {
+        console.log('[VOICE] Daily 已离开房间');
+        if (voiceActive) endVoiceCall();
+      });
+      dailyCall.on('error', (e) => {
+        console.error('[VOICE] Daily 错误', e);
+        if (voiceActive) endVoiceCall();
+      });
+
+      await dailyCall.join({
+        url: session.room_url,
+        token: session.token,
+        audioSource: true,
+        videoSource: false
+      });
+
+      if (callId !== voiceCallId || !voiceActive) {
+        try { await dailyCall.leave(); } catch {}
+        return;
+      }
+
+      console.log('[VOICE] Daily WebRTC 通话已建立');
+      return;
+    }
+
+    const { ws_url } = session;
+    console.log('[VOICE] 使用旧 WebSocket 传输, ws_url =', ws_url);
 
     // 2. 复用点击时已解锁的 AudioContext（iOS 需要用户手势）
     if (!audioPlayer || audioPlayer.ctx.state === 'closed') {
@@ -545,6 +590,12 @@ function endVoiceCall() {
 
   stopMic();
   if (voiceWs) { try { voiceWs.close(); } catch {} voiceWs = null; }
+  if (dailyCall) {
+    const call = dailyCall;
+    dailyCall = null;
+    try { call.leave(); } catch {}
+    try { call.destroy(); } catch {}
+  }
   if (audioPlayer) { audioPlayer.close(); audioPlayer = null; }
 
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
