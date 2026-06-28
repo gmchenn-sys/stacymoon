@@ -49,20 +49,22 @@ async function askStacy(userMessage) {
   return reply;
 }
 
-// ─ SSE 流式版本（真正的边收边显示）─────────────
+// ── SSE 流式版本（走 /chat/stream，server-sent events）─────────
 async function askStacyStream(userMessage, onSentence, onChar) {
   conversationHistory.push({ role: "user", content: userMessage });
 
-  const response = await fetch('https://stacymoon.online/v1/chat/completions', {
+  const profile = getStacyProfile();
+
+  const response = await fetch('https://stacymoon.online/chat/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        ...conversationHistory.slice(-4).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userMessage }
-      ],
-      stream: true
+      message: userMessage,
+      user_id: getUserId(),
+      stacy_profile: {
+        name: profile.name || undefined,
+        age: profile.age ? Number(profile.age) : undefined,
+      }
     })
   });
 
@@ -71,6 +73,7 @@ async function askStacyStream(userMessage, onSentence, onChar) {
     throw new Error('Agent 请求失败: ' + response.status + (err ? ' ' + err.slice(0, 100) : ''));
   }
 
+  // ── SSE 解析：{"type":"token","content":"..."} 和 {"type":"done","response":"..."} ──
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -87,37 +90,55 @@ async function askStacyStream(userMessage, onSentence, onChar) {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+      if (!trimmed) continue;
 
-      const data = trimmed.slice(6).trim();
-      if (data === '[DONE]') break;
+      // 支持 "data: {...}" 格式
+      let jsonStr = trimmed;
+      if (trimmed.startsWith('data: ')) {
+        jsonStr = trimmed.slice(6).trim();
+      }
+
+      if (jsonStr === '[DONE]') break;
+      if (!jsonStr.startsWith('{')) continue;
 
       try {
-        const parsed = JSON.parse(data);
-        const token = parsed.choices?.[0]?.delta?.content || '';
-        if (!token) continue;
+        const parsed = JSON.parse(jsonStr);
 
-        fullText += token;
-        if (onChar) onChar(token);
+        if (parsed.type === 'token' && parsed.content) {
+          const token = parsed.content;
+          fullText += token;
+          if (onChar) onChar(token);
 
-        // 检测句子边界
-        sentenceBuffer += token;
-        const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
-        if (m) {
-          const sentence = m[1].trim();
-          sentenceBuffer = m[2];
-          if (sentence && onSentence) onSentence(sentence);
+          sentenceBuffer += token;
+          const m = sentenceBuffer.match(/^(.+?[。！？\n])(.*)$/s);
+          if (m) {
+            const sentence = m[1].trim();
+            sentenceBuffer = m[2];
+            if (sentence && onSentence) onSentence(sentence);
+          }
+        } else if (parsed.type === 'done') {
+          const reply = parsed.response || fullText;
+          // 剩余尾部文字
+          if (sentenceBuffer.trim() && onSentence) {
+            onSentence(sentenceBuffer.trim());
+          }
+          const cleaned = stripMarkdown(reply);
+          conversationHistory.push({ role: "assistant", content: cleaned });
+          return cleaned;
         }
       } catch {}
     }
   }
 
-  // 剩余尾部文字
-  if (sentenceBuffer.trim() && onSentence) {
-    onSentence(sentenceBuffer.trim());
+  // 兜底：stream 结束了但没收到 done 事件
+  if (fullText) {
+    if (sentenceBuffer.trim() && onSentence) {
+      onSentence(sentenceBuffer.trim());
+    }
+    const cleaned = stripMarkdown(fullText);
+    conversationHistory.push({ role: "assistant", content: cleaned });
+    return cleaned;
   }
 
-  const cleaned = stripMarkdown(fullText);
-  conversationHistory.push({ role: "assistant", content: cleaned });
-  return cleaned;
+  throw new Error('Agent 返回为空');
 }
