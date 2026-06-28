@@ -5,6 +5,7 @@ class PcmResampler extends AudioWorkletProcessor {
   constructor(options) {
     super(options);
     this.targetRate = options.processorOptions?.targetRate || 16000;
+    this.voiceThreshold = options.processorOptions?.voiceThreshold || 0.012;
     this.inputRate = sampleRate;
     this.ratio = this.inputRate / this.targetRate;
     this.callCount = 0;
@@ -51,13 +52,22 @@ class PcmResampler extends AudioWorkletProcessor {
 
     if (bufLen < 1) return true;
 
+    let inputPeak = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const a = Math.abs(channel0[i]);
+      if (a > inputPeak) inputPeak = a;
+    }
+    const treatAsSilence = inputPeak < this.voiceThreshold;
+
     const outLen = Math.floor(bufLen / this.ratio);
     if (outLen < 1) return true;
 
     const pcm = new Int16Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      const s = channel0[Math.floor(i * this.ratio)];
-      pcm[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+    if (!treatAsSilence) {
+      for (let i = 0; i < outLen; i++) {
+        const s = channel0[Math.floor(i * this.ratio)];
+        pcm[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+      }
     }
 
     // 把 PCM buffer 传回主线程

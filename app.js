@@ -249,8 +249,8 @@ class BotAudioPlayer {
     this._speakTimer = null;
     this._decodeQueue = Promise.resolve();
     this._chunkCount = 0;
-    this._initialBufferSec = 0.45;
-    this._minScheduleAheadSec = 0.08;
+    this._initialBufferSec = 0.9;
+    this._minScheduleAheadSec = 0.18;
   }
 
   enqueue(arrayBuffer) {
@@ -339,7 +339,10 @@ async function startMic(ws) {
 
   const source = audioCtx.createMediaStreamSource(micStream);
   const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
-    processorOptions: { targetRate: 16000 }
+    processorOptions: {
+      targetRate: 16000,
+      voiceThreshold: 0.012
+    }
   });
   micWorkletNode = workletNode;
 
@@ -365,6 +368,7 @@ async function startMic(ws) {
       return;
     }
     // e.data 是 Int16Array 的 ArrayBuffer（已通过 transfer 传递）
+    if (isSpeaking) return;
     ws.send(e.data);
     if (!pcmSent) {
       pcmSent = true;
