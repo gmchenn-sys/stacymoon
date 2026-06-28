@@ -6,6 +6,11 @@ function getUserId() {
   return localStorage.getItem('stacy_invite_code') || '';
 }
 
+function getStacyProfile() {
+  try { return JSON.parse(localStorage.getItem('stacy_profile') || '{}'); }
+  catch { return {}; }
+}
+
 function stripMarkdown(text) {
   if (!text) return '';
   return text
@@ -23,7 +28,11 @@ async function askStacy(userMessage) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       message: userMessage,
-      user_id: getUserId()
+      user_id: getUserId(),
+      stacy_profile: {
+        name: getStacyProfile().name || undefined,
+        age: getStacyProfile().age ? Number(getStacyProfile().age) : undefined,
+      }
     })
   });
 
