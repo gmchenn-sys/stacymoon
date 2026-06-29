@@ -137,6 +137,79 @@
 
 <script src="supabase.js"></script>
 <script>
+// ── 假数据注入（仅 moon001 + 数据不足时） ──
+(function seedIfNeeded() {
+  var code = localStorage.getItem('stacy_invite_code');
+  if (code !== 'moon001') return;
+  var existing = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+  if (existing.length >= 5) return;
+
+  var today = new Date();
+  var allMoods = ['😊','😴','😣','🥱','😌','😊','😔'];
+  var allSymptoms = ['poor_sleep','mood_swing','fatigue','cramps','bloating'];
+  var userMessages = [
+    '今天感觉好累，腰也酸', '早上起来胸口有点闷', '昨晚睡得还行，就是半夜醒了一次',
+    '今天状态不错，出去走了走', '下午有点头晕，不知道是不是热的', '胃口不太好，吃一点就饱了',
+    '今天心情不太好，容易烦躁', '感觉潮热又来了，一阵一阵的',
+    '晚上睡不着，翻来覆去的', '今天和女儿通了电话，心情好多了',
+    '肩膀和膝盖有点疼', '今天特别困，白天也打盹',
+    '喝了一杯豆浆，听说对更年期好', '今天做了半小时瑜伽，感觉舒服些'
+  ];
+  var aiReplies = [
+    '听到这些，我理解你的辛苦。围经期的疲劳是很常见的，记得今天多喝水，给自己一点休息的空间。',
+    '胸闷在围经期确实可能出现，和激素波动有关。如果持续的话可以记录一下发生的时间，我们后面看看有没有规律。',
+    '能睡着一部分就是好的开始。半夜醒在围经期很常见，可能和体温调节有关。睡前喝杯温牛奶试试？',
+    '真为你高兴！出去走走对身心都有好处，阳光和新鲜空气是最好的补药。继续保持哦。',
+    '天热确实容易头晕，围经期的血管调节本来就更敏感。记得多喝水，避免突然站起来。',
+    '胃口不好在围经期很常见。不用勉强自己吃太多，少量多餐，清淡一点就好。记录下哪些食物比较能接受，我们慢慢找到适合你的节奏。',
+    '烦躁是围经期最常见的情绪之一，不是你的错。试试深呼吸：吸气4秒，屏住4秒，吐气6秒。做三次会感觉不一样。',
+    '潮热确实让人很不舒服，一阵一阵的。可以试着穿容易脱的薄外套，随身带个小扇子。我记录下来了，后面看看有没有规律。',
+    '失眠真的很折磨人。如果躺了20分钟还睡不着，不妨起来走走，喝点温水，等有困意再躺回去。床只用来睡觉，建立起条件反射。',
+    '和女儿聊天是最好的疗愈。亲情是我们最温暖的港湾。',
+    '关节不适在围经期很常见，雌激素下降会影响关节润滑。适度的拉伸和保暖会有帮助。',
+    '困的时候就小睡一会儿，15-20分钟就好。围经期的身体需要更多休息，不要有负担。',
+    '豆浆里的大豆异黄酮对围经期确实有好处，就是个好习惯。不过效果是慢慢积累的，坚持才会看到变化。',
+    '瑜伽对情绪和睡眠都很有帮助！肌肉拉伸 + 呼吸练习，简直就是围经期的好搭档。坚持下来你会看到变化的。'
+  ];
+
+  // stacy_daily_logs：最近 7 天每天一条
+  var dailyLogs = [];
+  for (var i = 6; i >= 0; i--) {
+    var d = new Date(today);
+    d.setDate(d.getDate() - i);
+    var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    var nSymptom = 1 + Math.floor(Math.random() * 3);
+    var shuffled = allSymptoms.slice().sort(function(){ return Math.random()-0.5; });
+    dailyLogs.push({
+      date: ds,
+      mood: allMoods[6-i],
+      sleep_score: 5 + Math.floor(Math.random() * 5),
+      symptoms: shuffled.slice(0, nSymptom)
+    });
+  }
+  localStorage.setItem('stacy_daily_logs', JSON.stringify(dailyLogs));
+
+  // stacy_logs：最近 7 天共 14 条，每天 2 条
+  var chatLogs = [];
+  for (var i = 6; i >= 0; i--) {
+    var d = new Date(today);
+    d.setDate(d.getDate() - i);
+    var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    for (var j = 0; j < 2; j++) {
+      var idx = (i * 2 + j) % userMessages.length;
+      var h = 8 + Math.floor(Math.random() * 14);
+      var m = Math.floor(Math.random() * 60);
+      chatLogs.push({
+        time: String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'),
+        created_at: ds,
+        userMessage: userMessages[idx],
+        aiReply: aiReplies[idx]
+      });
+    }
+  }
+  localStorage.setItem('stacy_logs', JSON.stringify(chatLogs));
+})();
+
 // ── 工具 ─────────────────────────────────
 function getMonday(date) {
   const d = new Date(date);
