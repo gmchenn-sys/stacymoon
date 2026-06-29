@@ -176,7 +176,7 @@
   var dailyLogs = [];
   for (var i = 6; i >= 0; i--) {
     var d = new Date(today);
-    d.setDate(d.getDate() - i);
+    d.setDate(d.getDate() + i);
     var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     var nSymptom = 1 + Math.floor(Math.random() * 3);
     var shuffled = allSymptoms.slice().sort(function(){ return Math.random()-0.5; });
@@ -193,7 +193,7 @@
   var chatLogs = [];
   for (var i = 6; i >= 0; i--) {
     var d = new Date(today);
-    d.setDate(d.getDate() - i);
+    d.setDate(d.getDate() + i);
     var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     for (var j = 0; j < 2; j++) {
       var idx = (i * 2 + j) % userMessages.length;
