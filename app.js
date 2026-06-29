@@ -93,9 +93,10 @@ function removeRetryBubble() {
 async function saveLog(userMessage, aiReply) {
   const now = new Date();
   const timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
   const logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
-  logs.push({ time: timeStr, userMessage, aiReply });
+  logs.push({ time: timeStr, created_at: dateStr, userMessage, aiReply });
   if (logs.length > 20) logs.shift();
   localStorage.setItem('stacy_logs', JSON.stringify(logs));
 
