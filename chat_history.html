@@ -88,8 +88,16 @@ if (logs.length === 0) {
   var groups = {};
   logs.slice().reverse().forEach(function(l) {
     var d;
-    if (l.created_at) { d = l.created_at.slice(0, 10); }
-    else { d = '未知日期'; }
+    if (l.created_at) {
+      d = l.created_at.slice(0, 10);
+    } else if (l.time && l.time.includes(':')) {
+      var now = new Date();
+      d = now.getFullYear() + '-' +
+          String(now.getMonth() + 1).padStart(2, '0') + '-' +
+          String(now.getDate()).padStart(2, '0');
+    } else {
+      d = '未知日期';
+    }
     if (!groups[d]) groups[d] = [];
     groups[d].push(l);
   });
