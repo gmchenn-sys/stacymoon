@@ -233,7 +233,6 @@ let micWorkletNode = null;      // AudioWorkletNode
 let audioPlayer = null;         // 音频播放器
 let micMuted = false;           // 麦克风静音
 let voiceStatusText = '';       // 当前状态文案
-let dailySdkPromise = null;     // Daily SDK 加载 promise
 
 // ── 按钮图标 ────────────────────────────────
 const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
@@ -242,52 +241,6 @@ const STOP_ICON = `<rect x="6" y1="6" width="12" height="12" rx="2"/>`;
 function setVoiceIcon(type) {
   if (!voiceIcon) return;
   voiceIcon.innerHTML = type === 'stop' ? STOP_ICON : MIC_ICON;
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${src}"]`);
-    if (existing) {
-      existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', reject, { once: true });
-      if (existing.dataset.loaded === 'true') resolve();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = src;
-    script.async = true;
-    script.onload = () => { script.dataset.loaded = 'true'; resolve(); };
-    script.onerror = () => reject(new Error(`加载失败: ${src}`));
-    document.head.appendChild(script);
-  });
-}
-
-async function ensureDailySdk() {
-  if (typeof DailyIframe !== 'undefined') return;
-  if (dailySdkPromise) return dailySdkPromise;
-
-  const urls = [
-    'https://unpkg.com/@daily-co/daily-js',
-    'https://cdn.jsdelivr.net/npm/@daily-co/daily-js',
-    'https://cdn.jsdelivr.net/npm/@daily-co/daily-js/dist/daily-iframe.min.js'
-  ];
-
-  dailySdkPromise = (async () => {
-    let lastError = null;
-    for (const url of urls) {
-      try {
-        await loadScript(url);
-        if (typeof DailyIframe !== 'undefined') return;
-      } catch (e) {
-        lastError = e;
-        console.warn('[VOICE] Daily SDK 加载失败，尝试备用 CDN:', url, e);
-      }
-    }
-    throw lastError || new Error('DailyIframe SDK 未加载');
-  })();
-
-  return dailySdkPromise;
 }
 
 // ── 音频播放器（AudioWorklet 连续播放 bot 的 PCM 流）────────
@@ -529,7 +482,9 @@ async function startVoiceCall() {
     console.log('[VOICE] bot 已启动, session =', session);
 
     if (session.transport === 'daily') {
-      await ensureDailySdk();
+      if (typeof DailyIframe === 'undefined') {
+        throw new Error('DailyIframe SDK 未加载');
+      }
 
       dailyCall = DailyIframe.createCallObject({
         audioSource: true,
@@ -619,7 +574,7 @@ async function startVoiceCall() {
 
   } catch (e) {
     console.error('[VOICE] 启动失败:', e);
-    appendBubble('ai', `语音连接失败：${e?.message || '请稍后再试'} 🌙`);
+    appendBubble('ai', '语音连接失败，请稍后再试 🌙');
     endVoiceCall();
   } finally {
     if (callId === voiceCallId) voiceStarting = false;
