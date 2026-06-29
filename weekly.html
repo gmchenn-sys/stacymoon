@@ -140,7 +140,7 @@
 // ── 假数据注入（仅 moon001 + 数据不足时） ──
 (function seedIfNeeded() {
   var code = localStorage.getItem('stacy_invite_code');
-  if (code !== 'moon001') return;
+  if (!code || code.toUpperCase() !== 'MOON001') return;
   var existing = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
   if (existing.length >= 5) return;
 
