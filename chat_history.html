@@ -96,7 +96,10 @@ if (logs.length === 0) {
           String(now.getMonth() + 1).padStart(2, '0') + '-' +
           String(now.getDate()).padStart(2, '0');
     } else {
-      d = '未知日期';
+      var now = new Date();
+      d = now.getFullYear() + '-' +
+          String(now.getMonth() + 1).padStart(2, '0') + '-' +
+          String(now.getDate()).padStart(2, '0');
     }
     if (!groups[d]) groups[d] = [];
     groups[d].push(l);
@@ -104,11 +107,7 @@ if (logs.length === 0) {
 
   var html = '';
   Object.keys(groups).sort(function(a,b) { return b.localeCompare(a); }).forEach(function(date) {
-    var dateDisplay = date;
-    if (date !== '未知日期') {
-      var dt = new Date(date + 'T00:00:00');
-      dateDisplay = (dt.getMonth()+1) + '月' + dt.getDate() + '日（' + WEEKDAYS[dt.getDay()] + '）';
-    }
+    var dt = new Date(date + 'T00:00:00'); var dateDisplay = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
     var groupId = 'group-' + date.replace(/-/g, '');
     html += '<div class="date-group">';
     html += '<div class="date-header" onclick="toggleDate(\'' + groupId + '\', this)">';
