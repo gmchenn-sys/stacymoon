@@ -45,6 +45,30 @@ body {
   text-align: center;
   padding: 28px 20px 20px;
   flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.header.compact {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.header.compact .moon-logo {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+}
+
+.header.compact .title {
+  font-size: 14px;
+}
+
+.header.compact .subtitle,
+.header.compact .header-actions {
+  display: none;
 }
 
 .moon-logo {

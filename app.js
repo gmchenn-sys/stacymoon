@@ -28,6 +28,7 @@ async function sendMessage() {
     finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
     saveLog(text, reply);
+    document.querySelector('.header').classList.add('compact');
   } catch (e) {
     console.error('Stacy 请求失败:', e);
     removeStreamingBubble(aiBubble);
