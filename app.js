@@ -236,11 +236,11 @@ let voiceStatusText = '';       // 当前状态文案
 
 // ── 按钮图标 ────────────────────────────────
 const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
-const STOP_ICON = `<rect x="6" y1="6" width="12" height="12" rx="2"/>`;
+const PHONE_ICON = `<path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24 11.5 11.5 0 0 0 3.6.58 1 1 0 0 1 1 1V21a1 1 0 0 1-1 1A17 17 0 0 1 3 5a1 1 0 0 1 1-1h4.5a1 1 0 0 1 1 1 11.5 11.5 0 0 0 .58 3.6 1 1 0 0 1-.26 1z"/><line x1="23" y1="1" x2="1" y2="23" stroke-width="2"/>`;
 
 function setVoiceIcon(type) {
   if (!voiceIcon) return;
-  voiceIcon.innerHTML = type === 'stop' ? STOP_ICON : MIC_ICON;
+  voiceIcon.innerHTML = type === 'phone' ? PHONE_ICON : MIC_ICON;
 }
 
 // ── 音频播放器（AudioWorklet 连续播放 bot 的 PCM 流）────────
@@ -457,7 +457,7 @@ async function startVoiceCall() {
   voiceStarting = true;
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
-  setVoiceIcon('stop');
+  setVoiceIcon('phone');
   appendBubble('ai', '好的，请说话 🌙');
 
   try {
