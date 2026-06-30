@@ -591,6 +591,12 @@ const toggleMicMute = () => {
   console.log('[VOICE] 麦克风静音:', micMuted);
 };
 
+const escHtml = (s) => {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+};
+
 // ── 页面初始化：恢复今天的历史记录或显示问候语 ──
 (() => {
   const box = document.getElementById('chat-box');
@@ -639,9 +645,3 @@ const toggleMicMute = () => {
 
   box.scrollTop = box.scrollHeight;
 })();
-
-const escHtml = (s) => {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-};
