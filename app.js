@@ -1,3 +1,5 @@
+'use strict';
+
 // Stacy Moon — App Logic (WebSocket Voice Edition)
 
 // ── Voice Bot 服务地址 ────────────────────────────
