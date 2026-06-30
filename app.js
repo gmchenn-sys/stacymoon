@@ -591,18 +591,18 @@ function toggleMicMute() {
 
 // ── 页面初始化：恢复今天的历史记录或显示问候语 ──
 (function initChatBox() {
-  var box = document.getElementById('chat-box');
+  const box = document.getElementById('chat-box');
   if (!box) return;
 
-  var today = new Date();
-  var todayStr = today.getFullYear() + '-' +
+  const today = new Date();
+  const todayStr = today.getFullYear() + '-' +
       String(today.getMonth() + 1).padStart(2, '0') + '-' +
       String(today.getDate()).padStart(2, '0');
 
-  var logs = [];
+  let logs = [];
   try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
 
-  var todayLogs = logs.filter(function(l) { return l.created_at === todayStr; });
+  const todayLogs = logs.filter(l => l.created_at === todayStr);
 
   if (todayLogs.length === 0) {
     // 今天没有任何记录 — 保持 HTML 里的欢迎气泡，只更新文案，不做其他操作
@@ -612,19 +612,19 @@ function toggleMicMute() {
 
   // 有今天的记录 — 清空欢迎气泡，按时间顺序渲染历史消息
   box.innerHTML = '';
-  todayLogs.sort(function(a, b) { return (a.time || '').localeCompare(b.time || ''); });
-  todayLogs.forEach(function(l) {
-    var userMsg = l.userMessage || l.user_message || '';
-    var aiMsg = l.aiReply || l.ai_reply || '';
+  todayLogs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  todayLogs.forEach(l => {
+    const userMsg = l.userMessage || l.user_message || '';
+    const aiMsg = l.aiReply || l.ai_reply || '';
 
     if (userMsg) {
-      var userDiv = document.createElement('div');
+      const userDiv = document.createElement('div');
       userDiv.className = 'bubble-row user';
       userDiv.innerHTML = '<div class="bubble user-bubble">' + escHtml(userMsg) + '</div>';
       box.appendChild(userDiv);
     }
     if (aiMsg) {
-      var aiDiv = document.createElement('div');
+      const aiDiv = document.createElement('div');
       aiDiv.className = 'bubble-row ai';
       aiDiv.innerHTML = '<span class="avatar">🌙</span><div class="bubble ai-bubble">' + escHtml(aiMsg) + '</div>';
       box.appendChild(aiDiv);
@@ -632,14 +632,14 @@ function toggleMicMute() {
   });
 
   // 恢复后 header 保持 compact 状态
-  var header = document.querySelector('.header');
+  const header = document.querySelector('.header');
   if (header) header.classList.add('compact');
 
   box.scrollTop = box.scrollHeight;
 })();
 
 function escHtml(s) {
-  var d = document.createElement('div');
+  const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
 }
