@@ -32,11 +32,9 @@ body {
   color: var(--text);
   max-width: 420px;
   margin: 0 auto;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  min-height: 100dvh;
   padding-top: env(safe-area-inset-top);
+  position: relative;
 }
 
 /* ── Header ────────────────────────────── */
@@ -64,11 +62,6 @@ body {
 
 .header.compact .title {
   font-size: 14px;
-}
-
-.header.compact .subtitle,
-.header.compact .header-actions {
-  display: none;
 }
 
 .moon-logo {
@@ -125,8 +118,6 @@ body {
 /* ── Chat Box ──────────────────────────── */
 
 .chat-box {
-  flex: 1;
-  overflow-y: auto;
   padding: 8px 16px 90px;
   display: flex;
   flex-direction: column;
