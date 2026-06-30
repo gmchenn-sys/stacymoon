@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script>
+(function(){
+  var s = parseFloat(localStorage.getItem('stacy_font_scale')) || 1;
+  document.documentElement.style.fontSize = (16 * s) + 'px';
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Stacy Moon · Admin</title>
