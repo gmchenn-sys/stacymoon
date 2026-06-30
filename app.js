@@ -9,7 +9,7 @@ const VOICE_API_URL = 'https://stacymoon.online/voice/session';
 // ─ 文字聊天（保持不变）────────────────────────────
 // ═══════════════════════════════════════════════════════════
 
-async function sendMessage() {
+const sendMessage = async () => {
   const input = document.getElementById('user-input');
   const text = input.value.trim();
   if (!text) return;
@@ -23,7 +23,7 @@ async function sendMessage() {
     const reply = await askStacyStream(text,
       null,  // 文字聊天不需要 TTS 句子回调
       (char) => {
-        updateStreamingBubble(aiBubble, 
+        updateStreamingBubble(aiBubble,
           aiBubble._streamText = (aiBubble._streamText || '') + char);
       }
     );
@@ -36,9 +36,9 @@ async function sendMessage() {
     removeStreamingBubble(aiBubble);
     showRetryBubble(text);
   }
-}
+};
 
-async function retryAi() {
+const retryAi = async () => {
   const text = lastUserMessage;
   if (!text) return;
   removeRetryBubble();
@@ -61,11 +61,11 @@ async function retryAi() {
     removeLoading(loadingId);
     showRetryBubble(text);
   }
-}
+};
 
 let retryBubbleEl = null;
 
-function showRetryBubble(userMessage) {
+const showRetryBubble = (userMessage) => {
   lastUserMessage = userMessage;
   const box = document.getElementById('chat-box');
   const div = document.createElement('div');
@@ -74,7 +74,7 @@ function showRetryBubble(userMessage) {
   div.innerHTML = `
     <span class="avatar">🌙</span>
     <div class="bubble ai-bubble">
-      网络有点问题，稍后再试一下 
+      网络有点问题，稍后再试一下
       <div class="retry-actions">
         <button class="retry-btn retry-primary" onclick="retryAi()">重试</button>
         <button class="retry-btn" onclick="removeRetryBubble()">算了</button>
@@ -84,16 +84,16 @@ function showRetryBubble(userMessage) {
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   retryBubbleEl = div;
-}
+};
 
-function removeRetryBubble() {
+const removeRetryBubble = () => {
   const el = document.getElementById('retry-bubble');
   if (el) el.remove();
   if (retryBubbleEl) retryBubbleEl.remove();
   retryBubbleEl = null;
-}
+};
 
-async function saveLog(userMessage, aiReply) {
+const saveLog = async (userMessage, aiReply) => {
   const now = new Date();
   const timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
   const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
@@ -117,9 +117,9 @@ async function saveLog(userMessage, aiReply) {
   } catch (e) {
     console.warn('Supabase 写入失败:', e);
   }
-}
+};
 
-function appendBubble(role, text) {
+const appendBubble = (role, text) => {
   const box = document.getElementById('chat-box');
   const div = document.createElement('div');
   div.className = 'bubble-row ' + role;
@@ -129,10 +129,10 @@ function appendBubble(role, text) {
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   return div;
-}
+};
 
 let loadingCounter = 0;
-function appendLoading() {
+const appendLoading = () => {
   const id = 'loading-' + (++loadingCounter);
   const box = document.getElementById('chat-box');
   const div = document.createElement('div');
@@ -149,18 +149,18 @@ function appendLoading() {
   div._slowTimer = tid;
 
   return id;
-}
+};
 
-function removeLoading(id) {
+const removeLoading = (id) => {
   const el = document.getElementById(id);
   if (el) {
     if (el._slowTimer) clearTimeout(el._slowTimer);
     el.remove();
   }
-}
+};
 
 // ── 流式气泡 ───────────────────────────────
-function createStreamingBubble() {
+const createStreamingBubble = () => {
   const box = document.getElementById('chat-box');
   const div = document.createElement('div');
   div.className = 'bubble-row ai';
@@ -169,9 +169,9 @@ function createStreamingBubble() {
   box.scrollTop = box.scrollHeight;
   div._streamStarted = false;
   return div;
-}
+};
 
-function updateStreamingBubble(el, text) {
+const updateStreamingBubble = (el, text) => {
   const bubble = el.querySelector('.ai-bubble');
   if (!el._streamStarted) {
     el._streamStarted = true;
@@ -181,19 +181,19 @@ function updateStreamingBubble(el, text) {
   if (bubble) bubble.textContent = text;
   const box = document.getElementById('chat-box');
   box.scrollTop = box.scrollHeight;
-}
+};
 
-function finalizeStreamingBubble(el, text) {
+const finalizeStreamingBubble = (el, text) => {
   const bubble = el.querySelector('.ai-bubble');
   if (bubble) bubble.textContent = text;
-}
+};
 
-function removeStreamingBubble(el) {
+const removeStreamingBubble = (el) => {
   if (el) el.remove();
-}
+};
 
 // ─ 声波动画（TTS 播放中）──
-function showSoundwave() {
+const showSoundwave = () => {
   // 找到最后一个 AI 气泡来显示声波动画
   const rows = document.querySelectorAll('.bubble-row.ai .ai-bubble');
   const bubble = rows.length > 0 ? rows[rows.length - 1] : null;
@@ -202,13 +202,13 @@ function showSoundwave() {
   }
   document.getElementById('listening-hint')?.classList.add('show');
   document.querySelector('.input-area')?.classList.add('waiting');
-}
+};
 
-function hideSoundwave() {
+const hideSoundwave = () => {
   document.querySelectorAll('.soundwave').forEach(el => el.classList.remove('show'));
   document.getElementById('listening-hint')?.classList.remove('show');
   document.querySelector('.input-area')?.classList.remove('waiting');
-}
+};
 
 // ── 事件绑定 ─────────────────────────────────
 document.getElementById('send-btn').addEventListener('click', sendMessage);
@@ -240,10 +240,10 @@ let voiceStatusText = '';       // 当前状态文案
 const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
 const PHONE_ICON = `<rect x="6" y="6" width="12" height="12" rx="2"/>`;
 
-function setVoiceIcon(type) {
+const setVoiceIcon = (type) => {
   if (!voiceIcon) return;
   voiceIcon.innerHTML = type === 'phone' ? PHONE_ICON : MIC_ICON;
-}
+};
 
 // ── 音频播放器（AudioWorklet 连续播放 bot 的 PCM 流）────────
 class BotAudioPlayer {
@@ -341,7 +341,7 @@ class BotAudioPlayer {
 }
 
 // ── 麦克风 → WebSocket（PCM 16kHz 16-bit mono，AudioWorklet）───
-async function startMic(ws) {
+const startMic = async (ws) => {
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       channelCount: { ideal: 1 },
@@ -412,16 +412,16 @@ async function startMic(ws) {
   muteGain.connect(audioCtx.destination);
 
   console.log('[VOICE] 麦克风已启动 AudioWorklet 原始', audioCtx.sampleRate, 'Hz → 16kHz');
-}
+};
 
-function stopMic() {
+const stopMic = () => {
   if (micWorkletNode) { try { micWorkletNode.disconnect(); } catch {} micWorkletNode = null; }
   if (micAudioCtx)   { try { micAudioCtx.close(); } catch {} micAudioCtx = null; }
   if (micStream)     { micStream.getTracks().forEach(t => { try { t.stop(); } catch {} }); micStream = null; }
-}
+};
 
 // ── WebSocket 连接（带重试）──────────────────────
-async function connectVoiceWs(wsUrl, maxRetries = 5) {
+const connectVoiceWs = async (wsUrl, maxRetries = 5) => {
   for (let i = 0; i < maxRetries; i++) {
     try {
       console.log('[VOICE] 连接 WebSocket（第', i + 1, '次）');
@@ -441,10 +441,10 @@ async function connectVoiceWs(wsUrl, maxRetries = 5) {
       }
     }
   }
-}
+};
 
 // ── 开始语音通话 ─────────────────────────────────
-async function startVoiceCall() {
+const startVoiceCall = async () => {
   if (voiceActive || voiceStarting) {
     console.log('[VOICE] 已在启动/通话中，忽略重复启动');
     return;
@@ -537,10 +537,10 @@ async function startVoiceCall() {
   } finally {
     if (callId === voiceCallId) voiceStarting = false;
   }
-}
+};
 
 // ── 结束语音通话 ─────────────────────────────────
-function endVoiceCall() {
+const endVoiceCall = () => {
   voiceCallId++;
   voiceStarting = false;
   voiceActive = false;
@@ -556,7 +556,7 @@ function endVoiceCall() {
   hideSoundwave();
 
   console.log('[VOICE] 通话已结束');
-}
+};
 
 // ── 麦克风按钮点击 ───────────────────────────────
 voiceBtn.addEventListener('click', async () => {
@@ -586,13 +586,13 @@ voiceBtn.addEventListener('click', async () => {
 });
 
 // ── 麦克风静音切换（可选功能）───────────────────
-function toggleMicMute() {
+const toggleMicMute = () => {
   micMuted = !micMuted;
   console.log('[VOICE] 麦克风静音:', micMuted);
-}
+};
 
 // ── 页面初始化：恢复今天的历史记录或显示问候语 ──
-(function initChatBox() {
+(() => {
   const box = document.getElementById('chat-box');
   if (!box) return;
 
@@ -640,8 +640,8 @@ function toggleMicMute() {
   box.scrollTop = box.scrollHeight;
 })();
 
-function escHtml(s) {
+const escHtml = (s) => {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
-}
+};
