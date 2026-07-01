@@ -286,7 +286,7 @@ const setVoiceIcon = (type) => {
 
 // ── 音频播放器（AudioWorklet 连续播放 bot 的 PCM 流）────────
 class BotAudioPlayer {
-  constructor() {
+  constructor(sourceRate = 44100) {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.node = null;
     this.onSpeakingStart = null;
@@ -295,7 +295,16 @@ class BotAudioPlayer {
     this._ready = null;
     this._chunkCount = 0;
     this._playUntilMs = 0;
-    this._sourceRate = 44100;
+    this._sourceRate = sourceRate;
+  }
+
+  setSourceRate(sourceRate) {
+    const nextRate = Number(sourceRate) || 44100;
+    if (nextRate === this._sourceRate) return;
+    this._sourceRate = nextRate;
+    if (this.node) {
+      this.stop();
+    }
   }
 
   enqueue(arrayBuffer) {
@@ -529,12 +538,14 @@ const startVoiceCall = async () => {
       throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     }
 
-    const { ws_url } = await res.json();
-    console.log('[VOICE] bot 已启动，ws_url =', ws_url);
+    const { ws_url, audio_out_sample_rate } = await res.json();
+    console.log('[VOICE] bot 已启动，ws_url =', ws_url, 'audio_out_sample_rate =', audio_out_sample_rate);
 
     // 2. 复用点击时已解锁的 AudioContext（iOS 需要用户手势）
     if (!audioPlayer || audioPlayer.ctx.state === 'closed') {
-      audioPlayer = new BotAudioPlayer();
+      audioPlayer = new BotAudioPlayer(audio_out_sample_rate || 44100);
+    } else {
+      audioPlayer.setSourceRate(audio_out_sample_rate || 44100);
     }
     audioPlayer.onSpeakingStart = () => {
       isSpeaking = true;
