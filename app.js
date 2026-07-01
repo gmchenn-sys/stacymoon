@@ -236,6 +236,44 @@ let micWorkletNode = null;      // AudioWorkletNode
 let audioPlayer = null;         // 音频播放器
 let micMuted = false;           // 麦克风静音
 let voiceStatusText = '';       // 当前状态文案
+const voiceTabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const VOICE_LOCK_KEY = 'stacy_voice_active_lock';
+const VOICE_LOCK_TTL = 15000;
+let voiceLockTimer = null;
+
+const getVoiceLock = () => {
+  try { return JSON.parse(localStorage.getItem(VOICE_LOCK_KEY) || 'null'); }
+  catch { return null; }
+};
+
+const refreshVoiceLock = () => {
+  localStorage.setItem(VOICE_LOCK_KEY, JSON.stringify({
+    tabId: voiceTabId,
+    updatedAt: Date.now()
+  }));
+};
+
+const acquireVoiceLock = () => {
+  const lock = getVoiceLock();
+  const lockFresh =
+    lock &&
+    lock.tabId !== voiceTabId &&
+    Date.now() - Number(lock.updatedAt || 0) < VOICE_LOCK_TTL;
+  if (lockFresh) return false;
+
+  refreshVoiceLock();
+  if (voiceLockTimer) clearInterval(voiceLockTimer);
+  voiceLockTimer = setInterval(refreshVoiceLock, 3000);
+  return true;
+};
+
+const releaseVoiceLock = () => {
+  if (voiceLockTimer) { clearInterval(voiceLockTimer); voiceLockTimer = null; }
+  const lock = getVoiceLock();
+  if (!lock || lock.tabId === voiceTabId) localStorage.removeItem(VOICE_LOCK_KEY);
+};
+
+window.addEventListener('beforeunload', releaseVoiceLock);
 
 // ── 按钮图标 ────────────────────────────────
 const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
@@ -461,6 +499,11 @@ const startVoiceCall = async () => {
   const todayLog = todayLogs.find(l => l.date === todayStr) || {};
   const callId = ++voiceCallId;
 
+  if (!acquireVoiceLock()) {
+    appendBubble('ai', '另一个页面正在语音中，先关掉那边再试试 🌙');
+    return;
+  }
+
   voiceStarting = true;
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
@@ -556,6 +599,7 @@ const endVoiceCall = () => {
   stopMic();
   if (voiceWs) { try { voiceWs.close(); } catch {} voiceWs = null; }
   if (audioPlayer) { audioPlayer.close(); audioPlayer = null; }
+  releaseVoiceLock();
 
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
   setVoiceIcon('mic');
