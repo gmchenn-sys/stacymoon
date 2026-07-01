@@ -6,9 +6,27 @@ class PcmResampler extends AudioWorkletProcessor {
     super(options);
     this.targetRate = options.processorOptions?.targetRate || 16000;
     this.voiceThreshold = options.processorOptions?.voiceThreshold || 0.003;
+    this.debug = options.processorOptions?.debug === true;
     this.inputRate = sampleRate;
     this.ratio = this.inputRate / this.targetRate;
+    this.sourceOffset = 0;
+    this.chunkSamples = Math.max(
+      160,
+      Math.floor(this.targetRate * ((options.processorOptions?.chunkMs || 20) / 1000))
+    );
+    this.chunk = new Int16Array(this.chunkSamples);
+    this.chunkIndex = 0;
     this.callCount = 0;
+  }
+
+  _pushSample(sample) {
+    this.chunk[this.chunkIndex++] = sample;
+    if (this.chunkIndex < this.chunkSamples) return;
+
+    const out = this.chunk;
+    this.port.postMessage(out.buffer, [out.buffer]);
+    this.chunk = new Int16Array(this.chunkSamples);
+    this.chunkIndex = 0;
   }
 
   process(inputs) {
@@ -21,8 +39,8 @@ class PcmResampler extends AudioWorkletProcessor {
     if (!channel0) return true;
     const bufLen = channel0.length;
 
-    // 1% 概率打印原始音频数据，确认麦克风是否有真实输入
-    if (Math.random() < 0.01) {
+    // 调试模式才向主线程发诊断消息，避免手机端音频线程被日志拖慢。
+    if (this.debug && Math.random() < 0.01) {
       let peak = 0;
       for (let i = 0; i < bufLen; i++) {
         const a = Math.abs(channel0[i]);
@@ -32,7 +50,7 @@ class PcmResampler extends AudioWorkletProcessor {
     }
 
     // 前 10 次发调试消息
-    if (this.callCount <= 10) {
+    if (this.debug && this.callCount <= 10) {
       let peak = 0, sum = 0;
       for (let i = 0; i < bufLen; i++) {
         const a = Math.abs(channel0[i]);
@@ -59,19 +77,17 @@ class PcmResampler extends AudioWorkletProcessor {
     }
     const treatAsSilence = inputPeak < this.voiceThreshold;
 
-    const outLen = Math.floor(bufLen / this.ratio);
-    if (outLen < 1) return true;
-
-    const pcm = new Int16Array(outLen);
-    if (!treatAsSilence) {
-      for (let i = 0; i < outLen; i++) {
-        const s = channel0[Math.floor(i * this.ratio)];
-        pcm[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+    while (this.sourceOffset < bufLen) {
+      let sample = 0;
+      if (!treatAsSilence) {
+        const s = channel0[Math.floor(this.sourceOffset)] || 0;
+        sample = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
       }
+      this._pushSample(sample);
+      this.sourceOffset += this.ratio;
     }
 
-    // 把 PCM buffer 传回主线程
-    this.port.postMessage(pcm.buffer, [pcm.buffer]);
+    this.sourceOffset -= bufLen;
     return true;
   }
 }

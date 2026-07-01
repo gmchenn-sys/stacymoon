@@ -273,15 +273,15 @@ class BotAudioPlayer {
 
     this._ready = (async () => {
       await this.resume();
-      await this.ctx.audioWorklet.addModule('worklet.js?v=11');
+      await this.ctx.audioWorklet.addModule('worklet.js?v=12');
       this.node = new AudioWorkletNode(this.ctx, 'pcm-stream-player', {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [1],
         processorOptions: {
           sourceRate: this._sourceRate,
-          initialBufferSec: 0.45,
-          rebufferSec: 0.16,
+          initialBufferSec: 0.7,
+          rebufferSec: 0.32,
           maxBufferSec: 12
         }
       });
@@ -299,16 +299,17 @@ class BotAudioPlayer {
   }
 
   _enqueuePcm(arrayBuffer) {
+    const byteLength = arrayBuffer.byteLength;
     this.node.port.postMessage({ type: 'pcm', buffer: arrayBuffer }, [arrayBuffer]);
 
     this._chunkCount++;
     if (this._chunkCount === 1) {
-      console.log('[VOICE] 收到并开始缓冲 bot PCM 音频 首块字节=', arrayBuffer.byteLength);
+      console.log('[VOICE] 收到并开始缓冲 bot PCM 音频 首块字节=', byteLength);
     }
 
     const now = performance.now();
-    const durationMs = (arrayBuffer.byteLength / 2 / this._sourceRate) * 1000;
-    this._playUntilMs = Math.max(this._playUntilMs, now + 350) + durationMs;
+    const durationMs = (byteLength / 2 / this._sourceRate) * 1000;
+    this._playUntilMs = Math.max(this._playUntilMs, now + 700) + durationMs;
 
     if (this.onSpeakingStart) this.onSpeakingStart();
     if (this._speakTimer) clearTimeout(this._speakTimer);
@@ -359,13 +360,15 @@ const startMic = async (ws) => {
   console.log('[VOICE] audioCtx.state=', audioCtx.state, 'sampleRate=', audioCtx.sampleRate);
 
   // 加载 AudioWorklet 模块（替代废弃的 ScriptProcessorNode）
-  await audioCtx.audioWorklet.addModule('worklet.js?v=11');
+  await audioCtx.audioWorklet.addModule('worklet.js?v=12');
 
   const source = audioCtx.createMediaStreamSource(micStream);
   const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
     processorOptions: {
       targetRate: 16000,
-      voiceThreshold: 0.003
+      voiceThreshold: 0.003,
+      chunkMs: 20,
+      debug: false
     }
   });
   micWorkletNode = workletNode;
@@ -452,6 +455,7 @@ const startVoiceCall = async () => {
   }
 
   const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
+  const userId = localStorage.getItem('stacy_invite_code') || 'voice-anonymous';
   const todayLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayLog = todayLogs.find(l => l.date === todayStr) || {};
@@ -471,6 +475,7 @@ const startVoiceCall = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_context: {
+          user_id: userId,
           profile: profile,
           today_log: todayLog
         }
