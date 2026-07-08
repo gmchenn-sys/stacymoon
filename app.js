@@ -30,7 +30,7 @@ const sendMessage = async () => {
     );
     finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
-    saveLog(text, reply);
+    saveLog(text, reply, getLastStreamMeta());
     document.querySelector('.header').classList.add('compact');
   } catch (e) {
     console.error('Stacy 请求失败:', e);
@@ -56,7 +56,7 @@ const retryAi = async () => {
     removeLoading(loadingId);
     finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
-    saveLog(text, reply);
+    saveLog(text, reply, getLastStreamMeta());
   } catch (e) {
     console.error('重试失败:', e);
     removeLoading(loadingId);
@@ -94,27 +94,57 @@ const removeRetryBubble = () => {
   retryBubbleEl = null;
 };
 
-const saveLog = async (userMessage, aiReply) => {
+/**
+ * saveLog — 每轮对话落库（本地 + Supabase）
+ * 契约 docs/API_CONTRACT.md §8：扩展字段 channel / call_id / intent / sources。
+ * 说明：契约的「saveLog × 2」（user + assistant 各一条）在本表结构下
+ * 落为一行 user_message + ai_reply，两条内容等价持久化。
+ *
+ * @param {object} [meta] - { channel, call_id, intent, sources }
+ */
+const saveLog = async (userMessage, aiReply, meta) => {
   const now = new Date();
   const timeStr = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
   const dateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  const userId = getUserId();
+  const channel = (meta && meta.channel) || 'text';
+  const callId = (meta && meta.call_id) || null;
+  const intent = (meta && meta.intent) || null;
+  const sources = (meta && meta.sources) || null;
 
+  // 本地缓存（保留，作为离线兜底）
   const logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
-  logs.push({ time: timeStr, created_at: dateStr, userMessage, aiReply });
+  logs.push({ time: timeStr, created_at: dateStr, userMessage, aiReply, channel, call_id: callId, intent });
   if (logs.length > 20) logs.shift();
   localStorage.setItem('stacy_logs', JSON.stringify(logs));
 
+  // 云端写入（带 user_id + 契约扩展字段）
+  const postLog = (body) => fetch(`${window.SUPABASE_URL}/rest/v1/logs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': window.SUPABASE_KEY,
+      'Authorization': `Bearer ${window.SUPABASE_KEY}`,
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(body)
+  });
+
   try {
-    await fetch(`${window.SUPABASE_URL}/rest/v1/logs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': window.SUPABASE_KEY,
-        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({ user_message: userMessage, ai_reply: aiReply })
+    const res = await postLog({
+      user_message: userMessage,
+      ai_reply: aiReply,
+      user_id: userId || null,
+      channel: channel,
+      call_id: callId,
+      intent: intent,
+      sources: sources
     });
+    // 表还没加新列时 PostgREST 会 400 — 降级为旧字段重写，保证不丢记录
+    if (!res.ok) {
+      console.warn('Supabase 扩展字段写入失败(', res.status, ')，降级为基础字段');
+      await postLog({ user_message: userMessage, ai_reply: aiReply });
+    }
   } catch (e) {
     console.warn('Supabase 写入失败:', e);
   }
@@ -236,6 +266,109 @@ let micWorkletNode = null;      // AudioWorkletNode
 let audioPlayer = null;         // 音频播放器
 let micMuted = false;           // 麦克风静音
 let voiceStatusText = '';       // 当前状态文案
+
+// ═══════════════════════════════════════════════════════════
+// ── 通话字幕（Phase 1，见 docs/VOICE_TRANSCRIPT_TODO.md）──
+// 协议：语音管道在音频 WebSocket 上以 JSON 文本帧下发字幕事件，
+// 与二进制音频帧共存。事件规格见 docs/VOICE_WS_EVENTS.md（与 Christine 对齐）。
+// ═══════════════════════════════════════════════════════════
+
+let currentCallUuid = null;   // 本次通话 UUID，绑定所有 turn
+let vtUserBubble = null;      // 当前轮用户字幕气泡
+let vtBotBubble = null;       // 当前轮 bot 字幕气泡
+let vtBotText = '';           // bot 逐字累积文本
+let vtUserFinalText = '';     // 用户 STT final 文本
+let vtTurnSaved = false;      // 当前轮是否已落库
+
+const vtResetTurn = () => {
+  vtUserBubble = null;
+  vtBotBubble = null;
+  vtBotText = '';
+  vtUserFinalText = '';
+  vtTurnSaved = false;
+};
+
+// 用户字幕：interim 半透明，final 转正常样式
+const vtShowUserTranscript = (text, isFinal) => {
+  if (!text) return;
+  if (!vtUserBubble) {
+    vtUserBubble = appendBubble('user', '');
+  }
+  const bubble = vtUserBubble.querySelector('.user-bubble');
+  if (bubble) {
+    bubble.textContent = text;
+    bubble.classList.toggle('interim', !isFinal);
+  }
+  if (isFinal) vtUserFinalText = text;
+  const box = document.getElementById('chat-box');
+  box.scrollTop = box.scrollHeight;
+};
+
+// bot 字幕：token 逐字追加
+const vtAppendBotToken = (content) => {
+  if (!content) return;
+  if (!vtBotBubble) {
+    vtBotBubble = createStreamingBubble();
+  }
+  vtBotText += content;
+  updateStreamingBubble(vtBotBubble, vtBotText);
+};
+
+// 回合结束：定稿气泡 + 落库（channel=voice，主路径，见契约 §8）
+const vtCompleteTurn = (msg) => {
+  const botText = (msg && (msg.response || msg.bot_text)) || vtBotText;
+  const userText = (msg && msg.user_text) || vtUserFinalText;
+
+  if (vtBotBubble) finalizeStreamingBubble(vtBotBubble, botText);
+  if (vtUserBubble) {
+    const bubble = vtUserBubble.querySelector('.user-bubble');
+    if (bubble) bubble.classList.remove('interim');
+  }
+
+  if (!vtTurnSaved && (userText || botText)) {
+    vtTurnSaved = true;
+    saveLog(userText, botText, {
+      channel: 'voice',
+      call_id: (msg && msg.call_id) || currentCallUuid,
+      intent: (msg && msg.intent) || null,
+      sources: (msg && msg.sources) || null
+    });
+  }
+  vtResetTurn();
+};
+
+// WebSocket 文本帧分发
+const handleVoiceTextFrame = (raw) => {
+  let msg;
+  try { msg = JSON.parse(raw); } catch { return; }
+  if (!msg || !msg.type) return;
+
+  switch (msg.type) {
+    case 'call_start':
+      if (msg.call_id) currentCallUuid = msg.call_id;
+      break;
+    case 'user_transcript':
+      vtShowUserTranscript(msg.text || msg.content || '', msg.final === true);
+      break;
+    case 'thinking':
+      // 用户 final 已上屏，bot 尚未回，暂不额外处理
+      break;
+    case 'token':
+    case 'bot_token':
+      vtAppendBotToken(msg.content || '');
+      break;
+    case 'done':
+    case 'turn_complete':
+      vtCompleteTurn(msg);
+      break;
+    case 'call_end':
+      vtCompleteTurn(msg);
+      break;
+    case 'error':
+      console.warn('[VOICE] 字幕事件 error:', msg.detail);
+      break;
+  }
+};
 
 // ── 按钮图标 ────────────────────────────────
 const MIC_ICON = `<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
@@ -457,6 +590,10 @@ const startVoiceCall = async () => {
   const todayLog = todayLogs.find(l => l.date === todayStr) || {};
   const callId = ++voiceCallId;
 
+  // 本次通话 UUID（契约 call_id）：前端生成，传给语音管道透传 Agent
+  currentCallUuid = generateUUID();
+  vtResetTurn();
+
   voiceStarting = true;
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
@@ -470,7 +607,10 @@ const startVoiceCall = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        call_id: currentCallUuid,
         user_context: {
+          user_id: getUserId(),
+          call_id: currentCallUuid,
           profile: profile,
           today_log: todayLog
         }
@@ -508,9 +648,13 @@ const startVoiceCall = async () => {
     voiceWs = ws;
     console.log('[VOICE] WebSocket 已连接');
 
-    // 4. 接收 bot 音频
+    // 4. 接收 bot 音频（二进制帧）+ 字幕事件（JSON 文本帧）
     voiceWs.onmessage = (e) => {
       if (callId !== voiceCallId) return;
+      if (typeof e.data === 'string') {
+        handleVoiceTextFrame(e.data);
+        return;
+      }
       if (e.data instanceof ArrayBuffer && e.data.byteLength > 0) {
         audioPlayer.enqueue(e.data);
       }
@@ -542,6 +686,11 @@ const startVoiceCall = async () => {
 
 // ── 结束语音通话 ─────────────────────────────────
 const endVoiceCall = () => {
+  // 挂断/断线时兜底：未落库的半截 turn 也要保存（见 VOICE_TRANSCRIPT_TODO「断线时上报已完成的 turns」）
+  if (vtUserFinalText || vtBotText) vtCompleteTurn(null);
+  vtResetTurn();
+  currentCallUuid = null;
+
   voiceCallId++;
   voiceStarting = false;
   voiceActive = false;
@@ -598,8 +747,8 @@ const escHtml = (s) => {
   return d.innerHTML;
 };
 
-// ── 页面初始化：恢复今天的历史记录或显示问候语 ──
-(() => {
+// ── 页面初始化：从云端 + 本地合并恢复今天的历史记录 ──
+(async () => {
   const box = document.getElementById('chat-box');
   if (!box) return;
 
@@ -608,14 +757,12 @@ const escHtml = (s) => {
       String(today.getMonth() + 1).padStart(2, '0') + '-' +
       String(today.getDate()).padStart(2, '0');
 
-  let logs = [];
-  try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
-
-  const todayLogs = logs.filter(l => l.created_at === todayStr);
+  // 统一入口：get_sessions_by_user 合并云端 + 本地
+  const allLogs = await get_sessions_by_user(getUserId());
+  const todayLogs = allLogs.filter(l => l.created_at === todayStr);
 
   if (todayLogs.length === 0) {
-    // 今天没有任何记录 — 保持 HTML 里的欢迎气泡，只更新文案，不做其他操作
-    // 文案已由 index.html 内嵌 script 处理
+    // 今天没有任何记录 — 保持 HTML 里的欢迎气泡
     return;
   }
 
@@ -625,17 +772,18 @@ const escHtml = (s) => {
   todayLogs.forEach(l => {
     const userMsg = l.userMessage || l.user_message || '';
     const aiMsg = l.aiReply || l.ai_reply || '';
+    const voiceTag = l.channel === 'voice' ? '<span class="voice-tag">🎙</span>' : '';
 
     if (userMsg) {
       const userDiv = document.createElement('div');
       userDiv.className = 'bubble-row user';
-      userDiv.innerHTML = '<div class="bubble user-bubble">' + escHtml(userMsg) + '</div>';
+      userDiv.innerHTML = '<div class="bubble user-bubble">' + voiceTag + escHtml(userMsg) + '</div>';
       box.appendChild(userDiv);
     }
     if (aiMsg) {
       const aiDiv = document.createElement('div');
       aiDiv.className = 'bubble-row ai';
-      aiDiv.innerHTML = '<span class="avatar">🌙</span><div class="bubble ai-bubble">' + escHtml(aiMsg) + '</div>';
+      aiDiv.innerHTML = '<span class="avatar">🌙</span><div class="bubble ai-bubble">' + voiceTag + escHtml(aiMsg) + '</div>';
       box.appendChild(aiDiv);
     }
   });

@@ -85,7 +85,8 @@
       "Bash(awk '{printf \"%6s %s\\\\n\", $5, $NF}')",
       "Bash(awk '{printf \"%6s  %s\\\\n\", $5, $NF}')",
       "Bash(awk '$NF !~ /\\\\./ {print $0}')",
-      "Bash(git commit -m 'feat: 全局字号缩放\\(A-/A+\\)、聊天历史恢复、清理废弃文件、新增CLAUDE.md *)"
+      "Bash(git commit -m 'feat: 全局字号缩放\\(A-/A+\\)、聊天历史恢复、清理废弃文件、新增CLAUDE.md *)",
+      "Bash(git check-ignore *)"
     ],
     "deny": []
   }

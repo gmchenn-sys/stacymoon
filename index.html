@@ -293,8 +293,11 @@
     const btn = document.getElementById('invite-btn');
     const err = document.getElementById('invite-err');
 
-    // 已有邀请码 → 没建档的先去建档
+    // 已有邀请码 → 确保 user_id 存在，然后检查建档
     if (localStorage.getItem('stacy_invite_code')) {
+      // 回访用户：确保有永久 user_id（UUID）
+      ensureUserId(localStorage.getItem('stacy_invite_code')).catch(() => {});
+
       const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
       if (!profile || !profile.name) {
         window.location.replace('onboarding.html');
@@ -337,6 +340,9 @@
         if (data.length) {
           const matchedCode = data[0].code;
           localStorage.setItem('stacy_invite_code', matchedCode);
+
+          // 生成/解析永久 user_id（UUID），写入 profiles 并缓存到 localStorage
+          await ensureUserId(matchedCode);
 
           // 从 Supabase 拉取已有档案（解决桌面快捷方式 localStorage 丢失问题）
           let profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');

@@ -193,7 +193,10 @@
       symptoms: shuffled.slice(0, nSymptom)
     });
   }
-  localStorage.setItem('stacy_daily_logs', JSON.stringify(dailyLogs));
+  var existingDaily = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+  if (existingDaily.length === 0) {
+    localStorage.setItem('stacy_daily_logs', JSON.stringify(dailyLogs));
+  }
 
   // stacy_logs：最近 7 天共 14 条，每天 2 条
   var chatLogs = [];
@@ -213,7 +216,10 @@
       });
     }
   }
-  localStorage.setItem('stacy_logs', JSON.stringify(chatLogs));
+  var existingLogs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
+  if (existingLogs.length === 0) {
+    localStorage.setItem('stacy_logs', JSON.stringify(chatLogs));
+  }
 })();
 
 // ── 工具 ─────────────────────────────────

@@ -180,6 +180,20 @@ body {
   border-radius: var(--radius) 0 var(--radius) var(--radius);
 }
 
+/* 通话字幕：STT interim 半透明灰，final 后移除 */
+.user-bubble.interim {
+  opacity: 0.55;
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+/* 语音消息标记（🎙 前缀） */
+.voice-tag {
+  font-size: 0.75em;
+  opacity: 0.7;
+  margin-right: 4px;
+}
+
 /* ── Input Area ────────────────────────── */
 
 .input-area {

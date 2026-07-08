@@ -80,71 +80,78 @@ body{
   <a class="nav-tab" href="reminder.html"><span class="nav-icon">💊</span>用药</a>
 </nav>
 
+<script src="supabase.js"></script>
+<script src="api.js"></script>
 <script>
 function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 var WEEKDAYS = ['日','一','二','三','四','五','六'];
 
-var logs = [];
-try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch {}
+// 统一入口：云端 + 本地合并
+(async function() {
+  var userId = getUserId();
+  var logs = await get_sessions_by_user(userId);
 
-if (logs.length === 0) {
-  document.getElementById('content').innerHTML = '<div class="empty-state">还没有对话记录<br>去首页跟 Stacy 聊两句吧</div>';
-} else {
-  // 按日期分组（逆序）
-  var groups = {};
-  logs.slice().reverse().forEach(function(l) {
-    var d;
-    if (l.created_at) {
-      d = l.created_at.slice(0, 10);
-    } else if (l.time && l.time.includes(':')) {
-      var now = new Date();
-      d = now.getFullYear() + '-' +
-          String(now.getMonth() + 1).padStart(2, '0') + '-' +
-          String(now.getDate()).padStart(2, '0');
-    } else {
-      var now = new Date();
-      d = now.getFullYear() + '-' +
-          String(now.getMonth() + 1).padStart(2, '0') + '-' +
-          String(now.getDate()).padStart(2, '0');
-    }
-    if (!groups[d]) groups[d] = [];
-    groups[d].push(l);
-  });
-
-  var html = '';
-  Object.keys(groups).sort(function(a,b) { return b.localeCompare(a); }).forEach(function(date) {
-    var dt = new Date(date + 'T00:00:00'); var dateDisplay = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
-    var groupId = 'group-' + date.replace(/-/g, '');
-    html += '<div class="date-group">';
-    html += '<div class="date-header" onclick="toggleDate(\'' + groupId + '\', this)">';
-    html += '<span class="arrow">▼</span>';
-    html += '<span class="dot"></span>';
-    html += '<span>' + dateDisplay + ' · ' + groups[date].length + ' 条对话</span>';
-    html += '</div>';
-    html += '<div class="date-body" id="' + groupId + '">';
-    groups[date].forEach(function(l) {
-      var time = l.time || '';
-      var userMsg = l.userMessage || l.user_message || '';
-      var aiMsg = l.aiReply || l.ai_reply || '';
-      if (userMsg) {
-        html += '<div class="msg-item msg-user"><div class="msg-time">' + esc(time) + '</div>' + esc(userMsg) + '</div>';
+  if (logs.length === 0) {
+    document.getElementById('content').innerHTML = '<div class="empty-state">还没有对话记录<br>去首页跟 Stacy 聊两句吧</div>';
+  } else {
+    // 按日期分组（逆序）
+    var groups = {};
+    logs.slice().reverse().forEach(function(l) {
+      var d;
+      if (l.created_at) {
+        d = l.created_at.slice(0, 10);
+      } else if (l.time && l.time.includes(':')) {
+        var now = new Date();
+        d = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0');
+      } else {
+        var now = new Date();
+        d = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0');
       }
-      if (aiMsg) {
-        html += '<div class="msg-item msg-ai"><div class="msg-time">Stacy · ' + esc(time) + '</div>' + esc(aiMsg) + '</div>';
-      }
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(l);
     });
-    html += '</div></div>';
-  });
 
-  document.getElementById('content').innerHTML = html;
-
-  // 设置每个 date-body 的高度用于折叠动画
-  setTimeout(function() {
-    document.querySelectorAll('.date-body').forEach(function(el) {
-      el.style.maxHeight = el.scrollHeight + 'px';
+    var html = '';
+    Object.keys(groups).sort(function(a,b) { return b.localeCompare(a); }).forEach(function(date) {
+      var dt = new Date(date + 'T00:00:00'); var dateDisplay = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
+      var groupId = 'group-' + date.replace(/-/g, '');
+      html += '<div class="date-group">';
+      html += '<div class="date-header" onclick="toggleDate(\'' + groupId + '\', this)">';
+      html += '<span class="arrow">▼</span>';
+      html += '<span class="dot"></span>';
+      html += '<span>' + dateDisplay + ' · ' + groups[date].length + ' 条对话</span>';
+      html += '</div>';
+      html += '<div class="date-body" id="' + groupId + '">';
+      groups[date].forEach(function(l) {
+        var time = l.time || '';
+        var userMsg = l.userMessage || l.user_message || '';
+        var aiMsg = l.aiReply || l.ai_reply || '';
+        // 语音消息加 🎙 标记（契约：聊天页合并展示 voice + text）
+        var voiceTag = l.channel === 'voice' ? '🎙 ' : '';
+        if (userMsg) {
+          html += '<div class="msg-item msg-user"><div class="msg-time">' + voiceTag + esc(time) + '</div>' + esc(userMsg) + '</div>';
+        }
+        if (aiMsg) {
+          html += '<div class="msg-item msg-ai"><div class="msg-time">' + voiceTag + 'Stacy · ' + esc(time) + '</div>' + esc(aiMsg) + '</div>';
+        }
+      });
+      html += '</div></div>';
     });
-  }, 50);
-}
+
+    document.getElementById('content').innerHTML = html;
+
+    // 设置每个 date-body 的高度用于折叠动画
+    setTimeout(function() {
+      document.querySelectorAll('.date-body').forEach(function(el) {
+        el.style.maxHeight = el.scrollHeight + 'px';
+      });
+    }, 50);
+  }
+})();
 
 function toggleDate(groupId, header) {
   var body = document.getElementById(groupId);

@@ -1,5 +1,13 @@
 # Stacy Moon — 项目速查
 
+## 协作契约（必读）
+
+- `docs/API_CONTRACT.md` — Agent 接口契约 v1.0（主入口 `POST https://stacymoon.online/chat/stream`，SSE：thinking → token → done）
+- `docs/VOICE_TRANSCRIPT_TODO.md` — 语音字幕 × 聊天历史协作任务
+- `docs/VOICE_WS_EVENTS.md` — 语音 WS 字幕事件协议（前端提案，待 Christine 确认）
+- `docs/TODO.md` — 已知问题与待办（含 Supabase 迁移 SQL）
+- **`user_id` = 邀请码 `stacy_invite_code`**（契约 §7），不要发 UUID 给 Agent
+
 ## 项目结构
 
 **核心用户流程页面（有导航）**
@@ -20,13 +28,13 @@
 
 ## 数据存储
 
-**Supabase 表**
+**Supabase 表**（2026-07-08 已迁移，加了契约扩展字段）
 - `invite_codes` — 邀请码（`code TEXT / used BOOL`）
-- `logs` — 聊天记录（`user_message TEXT / ai_reply TEXT / created_at TIMESTAMPTZ`）
-- `profiles` — 档案（`code TEXT / profile JSONB`）
+- `logs` — 聊天记录（`user_message TEXT / ai_reply TEXT / created_at TIMESTAMPTZ / user_id TEXT / channel TEXT 默认'text' / call_id TEXT / intent TEXT / sources JSONB`）
+- `profiles` — 档案（`code TEXT 唯一约束 / profile JSONB / user_id TEXT`）
 
 **localStorage 关键 key**
-- `stacy_logs` — 当前聊天记录数组（{time, created_at, userMessage, aiReply}，最多 20 条）
+- `stacy_logs` — 当前聊天记录数组（{time, created_at, userMessage, aiReply, channel, call_id, intent}，最多 20 条）
 - `stacy_daily_logs` — 每日打卡记录数组（{date, mood, sleep_score, symptoms, note}）
 - `stacy_invite_code` — 已核验的邀请码
 - `stacy_profile` — 用户档案 JSON（{name, age, symptoms, ...}）
@@ -51,3 +59,4 @@
 - **周报自然周筛选**：`weekly.html` 按自然周（周一至周日）聚合打卡数据，不能用 `new Date().getDay()` 的周日＝0 直接算
 - **`escHtml` 必须定义在恢复历史的 IIFE 之前**：页面初始化恢复聊天记录时调用了 `escHtml`，该函数定义如果放在 IIFE 后面会导致渲染空白
 - **聊天页字体**：`.bubble` 无显式 font-size，字体大小依赖 html 根字号继承，测试时确认正常即可
+- **种子数据保护**：`weekly.html` 在 `stacy_daily_logs` < 5 条时会生成种子数据。`stacy_logs` 和 `stacy_daily_logs` 的写入均有"仅在数组为空时才写入"的守卫。禁止在任何页面无条件 `setItem('stacy_logs', ...)` 或 `setItem('stacy_daily_logs', ...)`。
