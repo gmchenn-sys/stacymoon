@@ -266,6 +266,44 @@ let micWorkletNode = null;      // AudioWorkletNode
 let audioPlayer = null;         // 音频播放器
 let micMuted = false;           // 麦克风静音
 let voiceStatusText = '';       // 当前状态文案
+const voiceTabId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const VOICE_LOCK_KEY = 'stacy_voice_active_lock';
+const VOICE_LOCK_TTL = 15000;
+let voiceLockTimer = null;
+
+const getVoiceLock = () => {
+  try { return JSON.parse(localStorage.getItem(VOICE_LOCK_KEY) || 'null'); }
+  catch { return null; }
+};
+
+const refreshVoiceLock = () => {
+  localStorage.setItem(VOICE_LOCK_KEY, JSON.stringify({
+    tabId: voiceTabId,
+    updatedAt: Date.now()
+  }));
+};
+
+const acquireVoiceLock = () => {
+  const lock = getVoiceLock();
+  const lockFresh =
+    lock &&
+    lock.tabId !== voiceTabId &&
+    Date.now() - Number(lock.updatedAt || 0) < VOICE_LOCK_TTL;
+  if (lockFresh) return false;
+
+  refreshVoiceLock();
+  if (voiceLockTimer) clearInterval(voiceLockTimer);
+  voiceLockTimer = setInterval(refreshVoiceLock, 3000);
+  return true;
+};
+
+const releaseVoiceLock = () => {
+  if (voiceLockTimer) { clearInterval(voiceLockTimer); voiceLockTimer = null; }
+  const lock = getVoiceLock();
+  if (!lock || lock.tabId === voiceTabId) localStorage.removeItem(VOICE_LOCK_KEY);
+};
+
+window.addEventListener('beforeunload', releaseVoiceLock);
 
 // ═══════════════════════════════════════════════════════════
 // ── 通话字幕（Phase 1，见 docs/VOICE_TRANSCRIPT_TODO.md）──
@@ -406,15 +444,15 @@ class BotAudioPlayer {
 
     this._ready = (async () => {
       await this.resume();
-      await this.ctx.audioWorklet.addModule('worklet.js?v=11');
+      await this.ctx.audioWorklet.addModule('worklet.js?v=12');
       this.node = new AudioWorkletNode(this.ctx, 'pcm-stream-player', {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [1],
         processorOptions: {
           sourceRate: this._sourceRate,
-          initialBufferSec: 0.45,
-          rebufferSec: 0.16,
+          initialBufferSec: 0.7,
+          rebufferSec: 0.32,
           maxBufferSec: 12
         }
       });
@@ -432,16 +470,17 @@ class BotAudioPlayer {
   }
 
   _enqueuePcm(arrayBuffer) {
+    const byteLength = arrayBuffer.byteLength;
     this.node.port.postMessage({ type: 'pcm', buffer: arrayBuffer }, [arrayBuffer]);
 
     this._chunkCount++;
     if (this._chunkCount === 1) {
-      console.log('[VOICE] 收到并开始缓冲 bot PCM 音频 首块字节=', arrayBuffer.byteLength);
+      console.log('[VOICE] 收到并开始缓冲 bot PCM 音频 首块字节=', byteLength);
     }
 
     const now = performance.now();
-    const durationMs = (arrayBuffer.byteLength / 2 / this._sourceRate) * 1000;
-    this._playUntilMs = Math.max(this._playUntilMs, now + 350) + durationMs;
+    const durationMs = (byteLength / 2 / this._sourceRate) * 1000;
+    this._playUntilMs = Math.max(this._playUntilMs, now + 700) + durationMs;
 
     if (this.onSpeakingStart) this.onSpeakingStart();
     if (this._speakTimer) clearTimeout(this._speakTimer);
@@ -492,13 +531,15 @@ const startMic = async (ws) => {
   console.log('[VOICE] audioCtx.state=', audioCtx.state, 'sampleRate=', audioCtx.sampleRate);
 
   // 加载 AudioWorklet 模块（替代废弃的 ScriptProcessorNode）
-  await audioCtx.audioWorklet.addModule('worklet.js?v=11');
+  await audioCtx.audioWorklet.addModule('worklet.js?v=12');
 
   const source = audioCtx.createMediaStreamSource(micStream);
   const workletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler', {
     processorOptions: {
       targetRate: 16000,
-      voiceThreshold: 0.003
+      voiceThreshold: 0.003,
+      chunkMs: 20,
+      debug: false
     }
   });
   micWorkletNode = workletNode;
@@ -585,10 +626,16 @@ const startVoiceCall = async () => {
   }
 
   const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
+  const userId = localStorage.getItem('stacy_invite_code') || 'voice-anonymous';
   const todayLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayLog = todayLogs.find(l => l.date === todayStr) || {};
   const callId = ++voiceCallId;
+
+  if (!acquireVoiceLock()) {
+    appendBubble('ai', '另一个页面正在语音中，先关掉那边再试试 🌙');
+    return;
+  }
 
   // 本次通话 UUID（契约 call_id）：前端生成，传给语音管道透传 Agent
   currentCallUuid = generateUUID();
@@ -609,7 +656,7 @@ const startVoiceCall = async () => {
       body: JSON.stringify({
         call_id: currentCallUuid,
         user_context: {
-          user_id: getUserId(),
+          user_id: userId,
           call_id: currentCallUuid,
           profile: profile,
           today_log: todayLog
@@ -700,6 +747,7 @@ const endVoiceCall = () => {
   stopMic();
   if (voiceWs) { try { voiceWs.close(); } catch {} voiceWs = null; }
   if (audioPlayer) { audioPlayer.close(); audioPlayer = null; }
+  releaseVoiceLock();
 
   voiceBtn.classList.remove('voice-active', 'voice-speaking');
   setVoiceIcon('mic');
