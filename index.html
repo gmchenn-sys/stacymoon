@@ -112,6 +112,18 @@
     .chat-box{padding-bottom:140px !important}
     /* 确保页面整体可滚动，header 在文档流顶部 */
     body{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+    /* ── 今日 Dashboard（T-007 IA 改版：首页并入聊天页顶部，可折叠）── */
+    .dashboard{margin:0 16px 8px;border:1px solid rgba(249,115,22,0.12);border-radius:14px;background:rgba(249,115,22,0.04);overflow:hidden}
+    .dash-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;color:var(--text-muted);font-family:inherit;font-size:0.78rem;padding:10px 14px;cursor:pointer;letter-spacing:1px}
+    .dash-toggle .arrow{transition:transform 0.2s}
+    .dashboard.open .dash-toggle .arrow{transform:rotate(180deg)}
+    .dash-body{display:none;padding:0 14px 12px;flex-direction:column;gap:8px}
+    .dashboard.open .dash-body{display:flex}
+    .dash-card{font-size:0.85rem;line-height:1.55;color:var(--text);background:rgba(249,115,22,0.07);border-radius:10px;padding:10px 12px}
+    .dash-row{display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text);text-decoration:none;padding:6px 2px}
+    .dash-row .dash-label{color:var(--text-muted);font-size:0.72rem;flex-shrink:0}
+    .dash-row .dash-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .dash-row .dash-action{flex-shrink:0;color:var(--accent);font-size:0.75rem;background:rgba(249,115,22,0.12);border:none;border-radius:8px;padding:4px 12px;font-family:inherit;cursor:pointer;text-decoration:none}
   </style>
 </head>
 <body>
@@ -152,6 +164,19 @@
       <button class="header-icon-btn danger" id="clear-btn" title="清空对话">🗑️</button>
     </div>
   </header>
+
+  <!-- 今日 Dashboard（T-007：问候在欢迎气泡里，这里是 今日关心/打卡/小任务/用药 一览）-->
+  <section class="dashboard" id="dashboard">
+    <button class="dash-toggle" id="dash-toggle" type="button">
+      <span>今日一览</span><span class="arrow">▾</span>
+    </button>
+    <div class="dash-body">
+      <div class="dash-card" id="dash-brief" style="display:none"></div>
+      <div class="dash-row" id="dash-checkin" style="display:none"></div>
+      <div class="dash-row" id="dash-task" style="display:none"></div>
+      <a class="dash-row" id="dash-med" href="reminder.html" style="display:none"></a>
+    </div>
+  </section>
 
   <main class="chat-box" id="chat-box">
     <div class="bubble-row ai">
@@ -273,18 +298,17 @@
   </script>
 
   <nav class="bottom-nav">
-    <a class="nav-tab" href="home.html"><span class="nav-icon">🏠</span>首页</a>
-    <span class="nav-tab active"><span class="nav-icon">🌙</span>聊天</span>
-    <a class="nav-tab" href="weekly.html"><span class="nav-icon">📊</span>周报</a>
-    <a class="nav-tab" href="history.html"><span class="nav-icon">📅</span>打卡</a>
-    <a class="nav-tab" href="reminder.html"><span class="nav-icon">💊</span>用药</a>
-  </nav>
+  <a class="nav-tab" href="history.html"><span class="nav-icon">📅</span>记录</a>
+  <span class="nav-tab active"><span class="nav-icon">🌙</span>说话</span>
+  <a class="nav-tab" href="profile.html"><span class="nav-icon">👤</span>我的</a>
+</nav>
 
   <script src="supabase.js?v=2"></script>
   <script src="api.js?v=2"></script>
   <script src="notify.js"></script>
   <script src="store.js?v=2"></script>
   <script src="app.js?v=18"></script>
+  <script src="dashboard.js?v=1"></script>
 
   <script>
   // ── 邀请码逻辑 ──────────────────────────

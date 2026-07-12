@@ -2,6 +2,10 @@
 <html lang="zh-CN">
 <head>
 <script>
+// T-007 IA 改版：无首页 Tab，首页并入聊天页（含 Android 旧桌面快捷方式指向本页的修复）
+location.replace('index.html');
+</script>
+<script>
 (function(){
   var s = parseFloat(localStorage.getItem('stacy_font_scale')) || 1;
   document.documentElement.style.fontSize = (16 * s) + 'px';
