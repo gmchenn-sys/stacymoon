@@ -1,6 +1,6 @@
 # 语音 WebSocket 字幕事件协议（前端 ⇄ 语音管道）
 
-> **v1.0 已上线（2026-07-12）** · Christine 侧文本帧已接通；前端 `handleVoiceTextFrame` 含事件名/字段别名容错。
+> **v1.0 前端就绪 · 管道侧待部署验证（2026-07-12）** · 真机联调实测：生产 `wss://stacymoon.online/voice/ws` 仅有二进制音频帧，**未收到任何 JSON 文本帧**（前端 `[VOICE][EVT]` 日志全程零条），字幕与语音落库因此未生效。前端 `handleVoiceTextFrame` 已含事件名/字段别名容错，等 Christine 确认文本帧下发部署后即可跑通。
 > 背景见 `docs/VOICE_TRANSCRIPT_TODO.md` Phase 1/2。
 
 ## 通道
