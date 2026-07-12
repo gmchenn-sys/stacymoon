@@ -74,6 +74,58 @@ body{
 .load-more-btn:active{border-color:var(--accent);color:var(--accent)}
 .load-more-btn:disabled{opacity:0.4;cursor:default}
 
+/* ── 今日打卡表单（移植自 home.html，F1/F3） ──── */
+.checkin-card{
+  background:linear-gradient(135deg,rgba(249,115,22,0.1),rgba(139,92,246,0.06));
+  border:1px solid rgba(249,115,22,0.12);border-radius:var(--radius);padding:16px;margin-bottom:16px;
+}
+.checkin-card.done{background:linear-gradient(135deg,rgba(249,115,22,0.04),rgba(139,92,246,0.02));border-color:rgba(249,115,22,0.06)}
+.checkin-title{font-size:0.7rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.checkin-title .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.checkin-done{text-align:center;padding:4px 0}
+.checkin-done .summary{font-size:0.82rem;color:var(--text);line-height:1.5;word-break:break-word}
+.checkin-done .time{font-size:0.68rem;color:var(--text-muted);margin-top:2px}
+.field-row{display:flex;align-items:center;margin-bottom:10px;gap:8px;width:100%}
+.field-label{font-size:0.72rem;color:var(--text-muted);width:2.75rem;flex-shrink:0}
+.mood-picker{display:flex;gap:6px;flex:1;flex-wrap:wrap;min-width:0}
+.mood-btn{
+  width:2.25rem;height:2.25rem;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+  font-size:1.25rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color 0.15s,background 0.15s,transform 0.12s;
+}
+.mood-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.15);transform:scale(1.08)}
+.mood-btn:active{transform:scale(0.93)}
+.sleep-picker{display:flex;gap:5px;flex:1;flex-wrap:wrap;min-width:0}
+.sleep-btn{
+  width:2rem;height:2rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-muted);font-size:0.78rem;font-weight:600;cursor:pointer;
+  transition:border-color 0.15s,background 0.15s,color 0.15s;display:flex;align-items:center;justify-content:center;
+}
+.sleep-btn.selected{border-color:var(--accent);background:var(--accent);color:#fff}
+.sleep-btn:active{transform:scale(0.93)}
+.tag-picker{display:flex;flex-wrap:wrap;gap:5px;flex:1;min-width:0}
+.tag-btn{
+  padding:5px 10px;border-radius:16px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-muted);font-size:0.72rem;cursor:pointer;white-space:nowrap;
+  transition:border-color 0.15s,background 0.15s,color 0.15s;
+}
+.tag-btn.selected{border-color:var(--accent);background:rgba(249,115,22,0.12);color:var(--accent)}
+.tag-btn:active{background:rgba(249,115,22,0.2)}
+.note-input{
+  flex:1;min-width:0;width:100%;max-width:100%;box-sizing:border-box;
+  min-height:2.125rem;height:auto;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);font-family:inherit;font-size:0.78rem;padding:0.4rem 0.625rem;outline:none;
+}
+.note-input:focus{border-color:var(--accent)}
+.note-input::placeholder{color:#444}
+.submit-btn{
+  width:100%;min-height:2.5rem;height:auto;padding:0.5rem 0.75rem;border-radius:10px;border:none;margin-top:10px;
+  background:var(--accent);color:#fff;font-family:inherit;font-size:0.82rem;font-weight:500;
+  cursor:pointer;transition:opacity 0.15s,transform 0.12s;
+}
+.submit-btn:active{opacity:0.85;transform:scale(0.97)}
+.submit-btn:disabled{opacity:0.35;cursor:default}
+
 /* ── 底部导航栏 ──── */
 .bottom-nav{
   position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;
@@ -93,9 +145,14 @@ body{
 <body>
 
 <div class="topbar">
-  <button class="back-btn" onclick="location.href='home.html'">← 返回</button>
-  <div class="title">📅 打卡历史</div>
+  <button class="back-btn" onclick="location.href='index.html'">← 返回</button>
+  <div class="title">📅 打卡记录</div>
   <div style="width:48px"></div>
+</div>
+
+<div class="checkin-card" id="checkin-card">
+  <div class="checkin-title"><span class="dot"></span>今日身体打卡</div>
+  <div id="checkin-content"></div>
 </div>
 
 <div class="section"><div class="section-label"><span class="dot"></span>趋势（近30天）</div></div>
@@ -120,7 +177,7 @@ body{
 
 <div class="section" style="margin-top:24px"><div class="section-label"><span class="dot"></span>打卡详情</div></div>
 <div id="log-list">
-  <div class="no-data" id="log-empty">还没有打卡记录<br>回首页打卡吧</div>
+  <div class="no-data" id="log-empty">还没有打卡记录<br>在上方记录今天的感受吧</div>
 </div>
 <div style="padding:0 0 20px;display:none" id="load-more-wrap">
   <button class="load-more-btn" id="load-more-btn">加载更多</button>
@@ -142,6 +199,112 @@ let displayCount = 0;
 const SYMPTOM_LABELS = { hot_flash:'潮热', night_sweat:'夜间出汗', poor_sleep:'睡眠差', mood_swing:'情绪波动', joint_pain:'关节不适', brain_fog:'脑雾' };
 const WEEKDAYS = ['日','一','二','三','四','五','六'];
 
+// F1：心情差→好（与睡眠 1差–5好 同向）；value 仍为 emoji 字符
+const MOODS = [
+  { emoji:'😢', label:'低落' },
+  { emoji:'😤', label:'烦躁' },
+  { emoji:'🥱', label:'疲惫' },
+  { emoji:'😌', label:'平静' },
+  { emoji:'😊', label:'不错' },
+];
+const SYMPTOM_TAGS = [
+  { key:'hot_flash', label:'潮热' },{ key:'night_sweat', label:'出汗' },{ key:'poor_sleep', label:'睡不好' },
+  { key:'mood_swing', label:'情绪波动' },{ key:'joint_pain', label:'关节疼' },{ key:'brain_fog', label:'脑雾' },
+];
+const SYMPTOM_LABEL_MAP = {};
+SYMPTOM_TAGS.forEach(s => SYMPTOM_LABEL_MAP[s.key] = s.label);
+const MOOD_LABEL = { '😊':'不错','😌':'平静','🥱':'疲惫','😤':'烦躁','😢':'低落','😐':'一般','😴':'很累' };
+
+function getToday() { return new Date().toISOString().slice(0,10); }
+function getTodayLog() { return dailyLogs.find(l => l && l.date === getToday()) || null; }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ═══════════════════════════════════════════════════════════
+// ── 今日打卡表单 ──────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+function renderCheckin() {
+  const container = document.getElementById('checkin-content');
+  const todayLog = getTodayLog();
+  if (todayLog) {
+    document.getElementById('checkin-card').classList.add('done');
+    const moodLabel = MOODS.find(m => m.emoji === todayLog.mood) || { label: MOOD_LABEL[todayLog.mood] || todayLog.mood };
+    const symptomsStr = (todayLog.symptoms||[]).filter(s => s !== 'none').map(s => SYMPTOM_LABEL_MAP[s]||SYMPTOM_LABELS[s]||s).join('、') || '无';
+    const parts = [];
+    if (moodLabel && moodLabel.label) parts.push((todayLog.mood || '') + moodLabel.label);
+    if (todayLog.sleep_score) parts.push('睡'+todayLog.sleep_score+'分');
+    if (symptomsStr !== '无') parts.push(symptomsStr);
+    if (todayLog.note) parts.push('"'+todayLog.note+'"');
+    container.innerHTML = `<div class="checkin-done"><div class="summary">${esc(parts.join(' · '))}</div><div class="time">今天已打卡</div></div>`;
+  } else {
+    document.getElementById('checkin-card').classList.remove('done');
+    container.innerHTML = `
+      <div class="field-row"><span class="field-label">心情</span><div class="mood-picker" id="mood-picker">${MOODS.map(m => `<button type="button" class="mood-btn" data-value="${m.emoji}" title="${m.label}">${m.emoji}</button>`).join('')}</div></div>
+      <div class="field-row"><span class="field-label">睡眠</span><div class="sleep-picker" id="sleep-picker">${[1,2,3,4,5].map(n => `<button type="button" class="sleep-btn" data-value="${n}">${n}</button>`).join('')}</div></div>
+      <div class="field-row"><span class="field-label">症状</span><div class="tag-picker" id="tag-picker">${SYMPTOM_TAGS.map(t => `<button type="button" class="tag-btn" data-value="${t.key}">${t.label}</button>`).join('')}</div></div>
+      <div class="field-row"><span class="field-label">备注</span><input class="note-input" id="note-input" placeholder="还想说什么…" maxlength="40"></div>
+      <button type="button" class="submit-btn" id="submit-btn" disabled>记录今天的感受</button>`;
+    bindFormEvents();
+  }
+}
+
+function bindFormEvents() {
+  let selMood = null, selSleep = null; const selTags = new Set();
+  const moodP = document.getElementById('mood-picker'), sleepP = document.getElementById('sleep-picker');
+  const tagP = document.getElementById('tag-picker'), submitBtn = document.getElementById('submit-btn');
+  moodP.addEventListener('click', e => {
+    const b = e.target.closest('.mood-btn'); if (!b) return;
+    moodP.querySelectorAll('.mood-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected'); selMood = b.dataset.value; submitBtn.disabled = false;
+  });
+  sleepP.addEventListener('click', e => {
+    const b = e.target.closest('.sleep-btn'); if (!b) return;
+    sleepP.querySelectorAll('.sleep-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected'); selSleep = parseInt(b.dataset.value, 10);
+  });
+  tagP.addEventListener('click', e => {
+    const b = e.target.closest('.tag-btn'); if (!b) return;
+    b.classList.toggle('selected');
+    if (b.classList.contains('selected')) selTags.add(b.dataset.value); else selTags.delete(b.dataset.value);
+  });
+  submitBtn.addEventListener('click', async () => {
+    if (!selMood) return;
+    submitBtn.disabled = true;
+    await saveDailyLog({
+      mood: selMood,
+      sleep_score: selSleep || 0,
+      symptoms: [...selTags],
+      note: document.getElementById('note-input').value.trim()
+    });
+    await refreshPage();
+  });
+}
+
+async function refreshPage() {
+  dailyLogs = (await getDailyLogs()).sort((a,b) => new Date(b.date) - new Date(a.date));
+  displayCount = 0;
+  const list = document.getElementById('log-list');
+  list.innerHTML = '<div class="no-data" id="log-empty">还没有打卡记录<br>在上方记录今天的感受吧</div>';
+  document.getElementById('sleep-empty').style.display = 'none';
+  document.getElementById('sleep-svg').style.display = '';
+  document.getElementById('sleep-svg').innerHTML = '';
+  document.getElementById('mood-blocks').style.display = '';
+  document.getElementById('mood-blocks').innerHTML = '';
+  document.getElementById('mood-empty').style.display = 'none';
+  document.getElementById('top-symptoms').style.display = '';
+  document.getElementById('top-symptoms').innerHTML = '';
+  document.getElementById('symptom-empty').style.display = 'none';
+  document.getElementById('load-more-wrap').style.display = 'none';
+  const btn = document.getElementById('load-more-btn');
+  btn.disabled = false; btn.textContent = '加载更多';
+  renderCheckin();
+  renderSleepChart();
+  renderMoodBlocks();
+  renderTopSymptoms();
+  renderMoreLogs();
+  if (dailyLogs.length > PER_PAGE) document.getElementById('load-more-wrap').style.display = '';
+}
+
 // ═══════════════════════════════════════════════════════════
 // ── 趋势：睡眠折线图 ──────────────────────────
 // ═══════════════════════════════════════════════════════════
@@ -158,6 +321,8 @@ function renderSleepChart() {
 
   const hasData = values.some(v => v > 0);
   if (!hasData) { document.getElementById('sleep-empty').style.display = ''; document.getElementById('sleep-svg').style.display = 'none'; return; }
+  document.getElementById('sleep-empty').style.display = 'none';
+  document.getElementById('sleep-svg').style.display = '';
 
   const W = 340, H = 120;
   const padL = 28, padR = 8, padT = 14, padB = 18;
@@ -216,6 +381,8 @@ function renderMoodBlocks() {
 
   const el = document.getElementById('mood-blocks');
   el.innerHTML = '';
+  el.style.display = '';
+  document.getElementById('mood-empty').style.display = 'none';
   let hasAny = false;
   for (let i = 0; i < 30; i++) {
     const d = new Date(daysAgo30); d.setDate(d.getDate() + i);
@@ -223,8 +390,9 @@ function renderMoodBlocks() {
     const mood = moodMap[date];
     let cls = 'empty';
     if (mood === '😊') { cls = 'good'; hasAny = true; }
-    else if (mood === '😐') { cls = 'ok'; hasAny = true; }
-    else if (mood === '😤' || mood === '😢' || mood === '😴') { cls = 'bad'; hasAny = true; }
+    else if (mood === '😐' || mood === '😌') { cls = 'ok'; hasAny = true; }
+    else if (mood === '😤' || mood === '😢' || mood === '😴' || mood === '🥱') { cls = 'bad'; hasAny = true; }
+    else if (mood) { cls = 'ok'; hasAny = true; }
     el.innerHTML += `<div class="mood-block ${cls}" title="${date.slice(5)}: ${mood||'无'}"></div>`;
   }
   if (!hasAny) { el.style.display = 'none'; document.getElementById('mood-empty').style.display = ''; }
@@ -246,19 +414,18 @@ function renderTopSymptoms() {
 
   const el = document.getElementById('top-symptoms');
   el.innerHTML = '';
+  el.style.display = '';
+  document.getElementById('symptom-empty').style.display = 'none';
   if (top3.length === 0) { el.style.display = 'none'; document.getElementById('symptom-empty').style.display = ''; return; }
 
   top3.forEach(([k, v]) => {
-    el.innerHTML += `<div class="symptom-rank"><div class="rank-num">${v}</div><div class="rank-label">${SYMPTOM_LABELS[k] || k}</div><div class="rank-count">次</div></div>`;
+    el.innerHTML += `<div class="symptom-rank"><div class="rank-num">${v}</div><div class="rank-label">${SYMPTOM_LABELS[k] || SYMPTOM_LABEL_MAP[k] || k}</div><div class="rank-count">次</div></div>`;
   });
 }
 
 // ═══════════════════════════════════════════════════════════
 // ── 详情列表 ────────────────────────────────
 // ═══════════════════════════════════════════════════════════
-
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-const MOOD_LABEL = { '😊':'好','😐':'一般','😤':'烦躁','😢':'低落','😴':'很累' };
 
 function renderMoreLogs() {
   const list = document.getElementById('log-list');
@@ -276,7 +443,7 @@ function renderMoreLogs() {
     const dateStr = `${d.getMonth()+1}月${d.getDate()}日（${WEEKDAYS[d.getDay()]}）`;
     const moodStr = l.mood ? MOOD_LABEL[l.mood] || '' : '';
     const sleepStr = l.sleep_score ? ('⭐'.repeat(l.sleep_score) + ' ' + l.sleep_score + '分') : '';
-    const symptomsStr = (l.symptoms || []).filter(s => s !== 'none').map(s => SYMPTOM_LABELS[s] || s).join(' · ');
+    const symptomsStr = (l.symptoms || []).filter(s => s !== 'none').map(s => SYMPTOM_LABELS[s] || SYMPTOM_LABEL_MAP[s] || s).join(' · ');
     const noteStr = l.note || '';
 
     const el = document.createElement('div');
@@ -307,6 +474,7 @@ document.getElementById('load-more-btn').addEventListener('click', renderMoreLog
 
 (async function init() {
   dailyLogs = (await getDailyLogs()).sort((a,b) => new Date(b.date) - new Date(a.date));
+  renderCheckin();
   renderSleepChart();
   renderMoodBlocks();
   renderTopSymptoms();
