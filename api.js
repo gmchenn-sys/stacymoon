@@ -26,6 +26,28 @@ function getStacyProfile() {
 }
 
 /**
+ * buildStacyProfile() — 契约 §6.1 全量字段透传（undefined 字段省略）
+ * Agent 现阶段用 name/age，其余字段为路线图 P1（symptoms/exercise/medication 注入 prompt）预置。
+ */
+function buildStacyProfile() {
+  const p = getStacyProfile();
+  const profile = {
+    name: p.name || undefined,
+    age: p.age ? Number(p.age) : undefined,
+    height: p.height ? Number(p.height) : undefined,
+    weight: p.weight ? Number(p.weight) : undefined,
+    period_status: p.period_status || undefined,
+    symptoms: Array.isArray(p.symptoms) && p.symptoms.length ? p.symptoms : undefined,
+    exercise: p.exercise || undefined,
+    exercise_type: p.exercise_type || undefined,
+    diet: p.diet || undefined,
+    medication: p.medication || undefined,
+  };
+  Object.keys(profile).forEach(k => profile[k] === undefined && delete profile[k]);
+  return profile;
+}
+
+/**
  * generateUUID() — 生成 v4 UUID
  */
 function generateUUID() {
@@ -192,45 +214,11 @@ function stripMarkdown(text) {
     .replace(/#{1,6}\s/g, '');
 }
 
-// ── 非流式（用于文字聊天，保留完整回复）─────────
-async function askStacy(userMessage) {
-  conversationHistory.push({ role: "user", content: userMessage });
-
-  const response = await fetch('/api/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message: userMessage,
-      user_id: getUserId(),
-      reply_mode: "text",
-      channel: "text",
-      stacy_profile: {
-        name: getStacyProfile().name || undefined,
-        age: getStacyProfile().age ? Number(getStacyProfile().age) : undefined,
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const err = await response.text().catch(() => '');
-    throw new Error('Agent 请求失败: ' + response.status + (err ? ' ' + err.slice(0, 100) : ''));
-  }
-
-  const data = await response.json();
-  const reply = stripMarkdown(data.response);
-  if (!reply) throw new Error('Agent 返回为空');
-
-  conversationHistory.push({ role: "assistant", content: reply });
-  return reply;
-}
-
 // ── SSE 流式版本（走 /chat/stream，server-sent events）─────────
 // 契约：docs/API_CONTRACT.md §3。事件序列 thinking → evidence? → token → done
 async function askStacyStream(userMessage, onSentence, onChar) {
   conversationHistory.push({ role: "user", content: userMessage });
   lastStreamMeta = null;
-
-  const profile = getStacyProfile();
 
   const response = await fetch('https://stacymoon.online/chat/stream', {
     method: 'POST',
@@ -240,10 +228,7 @@ async function askStacyStream(userMessage, onSentence, onChar) {
       user_id: getUserId(),
       reply_mode: "text",
       channel: "text",
-      stacy_profile: {
-        name: profile.name || undefined,
-        age: profile.age ? Number(profile.age) : undefined,
-      }
+      stacy_profile: buildStacyProfile()
     })
   });
 
