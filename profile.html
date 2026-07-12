@@ -89,6 +89,28 @@ body{
 .nav-tab .nav-icon{font-size:20px;line-height:1}
 .nav-tab.active{color:var(--accent)}
 .nav-tab:active{opacity:0.7}
+
+/* ── 记忆 / 设置 ── */
+.memory-card,.settings-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:16px;
+}
+.memory-list{display:flex;flex-direction:column;gap:8px}
+.memory-row{display:flex;gap:10px;font-size:0.88rem;line-height:1.45}
+.memory-key{color:var(--text-muted);flex-shrink:0;min-width:4.5em}
+.memory-val{color:var(--text);word-break:break-word}
+.memory-text{font-size:0.88rem;color:var(--text);line-height:1.55}
+.font-scale-row{display:flex;align-items:center;gap:12px}
+.font-scale-btn{
+  width:44px;height:40px;border-radius:10px;border:1px solid rgba(255,255,255,0.18);
+  background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);
+  font-size:0.9rem;font-weight:600;font-family:inherit;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color 0.15s,color 0.15s,background 0.15s;line-height:1;
+}
+.font-scale-btn:active{border-color:var(--accent);color:#fff;background:rgba(249,115,22,0.15)}
+.font-scale-label{font-size:0.85rem;color:var(--text-muted);flex:1}
+.font-scale-value{font-size:0.9rem;color:#fff;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -161,6 +183,24 @@ body{
   <button class="save-btn" style="background:rgba(139,92,246,0.15);color:#a78bfa;border:1px solid rgba(139,92,246,0.2)" type="button" onclick="location.href='report.html'">📋 生成就医报告</button>
 </div>
 </form>
+
+<!-- Stacy 记得你（A9，生产暂 404 → 整块隐藏） -->
+<div class="section" id="memory-section" style="display:none">
+  <div class="section-label"><span class="dot"></span>Stacy 记得你</div>
+  <div class="memory-card" id="memory-body"></div>
+</div>
+
+<!-- 设置 · 字号 -->
+<div class="section" id="font-scale-section">
+  <div class="section-label"><span class="dot"></span>设置 · 字号</div>
+  <div class="settings-card">
+    <div class="font-scale-row">
+      <button class="font-scale-btn" id="font-scale-minus" type="button" title="减小字号">A−</button>
+      <div class="font-scale-label">当前档位 <span class="font-scale-value" id="font-scale-value">100%</span></div>
+      <button class="font-scale-btn" id="font-scale-plus" type="button" title="增大字号">A⁺</button>
+    </div>
+  </div>
+</div>
 
 <nav class="bottom-nav">
   <a class="nav-tab" href="history.html"><span class="nav-icon">📅</span>记录</a>
@@ -278,6 +318,99 @@ document.getElementById('save-btn').addEventListener('click', () => {
   btn.classList.add('done');
   setTimeout(() => { location.href = 'home.html'; }, 800);
 });
+
+// ── Stacy 记得你（A9）─────────────────────
+(function loadMemory() {
+  const section = document.getElementById('memory-section');
+  const body = document.getElementById('memory-body');
+  if (!section || !body) return;
+
+  const userId = localStorage.getItem('stacy_invite_code');
+  if (!userId) return;
+
+  const esc = (s) => String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && !v.length);
+
+  const render = (data) => {
+    if (typeof data === 'string') {
+      const t = data.trim();
+      if (!t) return false;
+      body.innerHTML = `<div class="memory-text">${esc(t)}</div>`;
+      return true;
+    }
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const rows = Object.keys(data).filter(k => !isEmpty(data[k]));
+      if (!rows.length) return false;
+      body.innerHTML = `<div class="memory-list">${rows.map(k => {
+        const v = data[k];
+        const text = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        return `<div class="memory-row"><span class="memory-key">${esc(k)}</span><span class="memory-val">${esc(text)}</span></div>`;
+      }).join('')}</div>`;
+      return true;
+    }
+    return false;
+  };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+
+  fetch('https://stacymoon.online/v1/agent/stacymoon/profile?user_id=' + encodeURIComponent(userId), {
+    signal: ctrl.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return res.json();
+      return res.text();
+    })
+    .then((data) => {
+      // 常见包装：{ profile: {...} } / { data: {...} } / { memory: ... }
+      let payload = data;
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        if (data.profile != null) payload = data.profile;
+        else if (data.data != null) payload = data.data;
+        else if (data.memory != null) payload = data.memory;
+      }
+      if (render(payload)) section.style.display = '';
+      else console.warn('[memory] empty payload, section hidden');
+    })
+    .catch((err) => {
+      console.warn('[memory] fetch failed, section hidden:', err && err.message ? err.message : err);
+    })
+    .finally(() => clearTimeout(timer));
+})();
+
+// ── 全局字号调节 ──────────────────────────
+(() => {
+  const KEY = 'stacy_font_scale';
+  const MIN = 0.8, MAX = 1.3, STEP = 0.1;
+  const valueEl = document.getElementById('font-scale-value');
+
+  const applyScale = (s) => {
+    const rounded = Math.round(s * 10) / 10;
+    document.documentElement.style.fontSize = (16 * rounded) + 'px';
+    localStorage.setItem(KEY, rounded);
+    if (valueEl) valueEl.textContent = Math.round(rounded * 100) + '%';
+  };
+
+  applyScale(parseFloat(localStorage.getItem(KEY)) || 1);
+
+  const minus = document.getElementById('font-scale-minus');
+  const plus = document.getElementById('font-scale-plus');
+  if (!minus || !plus) return;
+
+  minus.addEventListener('click', () => {
+    const cur = parseFloat(localStorage.getItem(KEY)) || 1;
+    applyScale(Math.max(MIN, cur - STEP));
+  });
+  plus.addEventListener('click', () => {
+    const cur = parseFloat(localStorage.getItem(KEY)) || 1;
+    applyScale(Math.min(MAX, cur + STEP));
+  });
+})();
 </script>
 </body>
 </html>
