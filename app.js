@@ -354,7 +354,7 @@ const vtAppendBotToken = (content) => {
 
 // 回合结束：定稿气泡 + 落库（channel=voice，主路径，见契约 §8）
 const vtCompleteTurn = (msg) => {
-  const botText = (msg && (msg.response || msg.bot_text)) || vtBotText;
+  const botText = (msg && (msg.response || msg.bot_text || msg.content)) || vtBotText;
   const userText = (msg && msg.user_text) || vtUserFinalText;
 
   if (vtBotBubble) finalizeStreamingBubble(vtBotBubble, botText);
@@ -385,8 +385,12 @@ const handleVoiceTextFrame = (raw) => {
     case 'call_start':
       if (msg.call_id) currentCallUuid = msg.call_id;
       break;
+    case 'transcript':
     case 'user_transcript':
-      vtShowUserTranscript(msg.text || msg.content || '', msg.final === true);
+      vtShowUserTranscript(
+        msg.text || msg.content || '',
+        msg.final === true || msg.is_final === true
+      );
       break;
     case 'thinking':
       // 用户 final 已上屏，bot 尚未回，暂不额外处理
