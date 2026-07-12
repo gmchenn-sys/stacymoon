@@ -238,6 +238,7 @@
 </div>
 
 <script src="supabase.js"></script>
+<script src="store.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // 打卡配置
@@ -252,30 +253,15 @@ const SYMPTOM_TAGS = [
 ];
 const SYMPTOM_LABEL_MAP = {};
 SYMPTOM_TAGS.forEach(s => SYMPTOM_LABEL_MAP[s.key] = s.label);
-const STORAGE_KEY = 'stacy_daily_logs';
 
 // ═══════════════════════════════════════════════════════════
-// 数据读写
+// 数据读写（统一走 store.js；同步读本地缓存供即时渲染）
 // ═══════════════════════════════════════════════════════════
 function getToday() { return new Date().toISOString().slice(0,10); }
-function loadAllLogs() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); } catch { return []; } }
-function saveAllLogs(logs) { localStorage.setItem(STORAGE_KEY, JSON.stringify(logs)); }
-function getTodayLog() { return loadAllLogs().find(l => l.date === getToday()) || null; }
-function saveTodayLog(data) {
-  const logs = loadAllLogs(); const today = getToday();
-  const idx = logs.findIndex(l => l.date === today); data.date = today;
-  if (idx >= 0) logs[idx] = data; else logs.push(data);
-  saveAllLogs(logs); syncToSupabase(data);
+function getLocalDailyLogs() {
+  try { return JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]'); } catch { return []; }
 }
-async function syncToSupabase(data) {
-  try {
-    const code = localStorage.getItem('stacy_invite_code'); if (!code) return;
-    await fetch(`${window.SUPABASE_URL}/rest/v1/daily_logs`, {
-      method:'POST', headers:{'Content-Type':'application/json','apikey':window.SUPABASE_KEY,'Authorization':'Bearer '+window.SUPABASE_KEY,'Prefer':'return=minimal'},
-      body:JSON.stringify({invite_code:code,date:data.date,mood:data.mood||'',sleep_score:data.sleep_score||0,symptoms:data.symptoms||[],note:data.note||''})
-    });
-  } catch(e) { console.warn('Supabase sync fail:', e); }
-}
+function getTodayLog() { return getLocalDailyLogs().find(l => l.date === getToday()) || null; }
 
 // ═══════════════════════════════════════════════════════════
 // 打卡渲染
@@ -312,7 +298,12 @@ function bindFormEvents() {
   moodP.addEventListener('click', e => { const b = e.target.closest('.mood-btn'); if(!b)return; moodP.querySelectorAll('.mood-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); selMood = b.dataset.value; submitBtn.disabled = false; });
   sleepP.addEventListener('click', e => { const b = e.target.closest('.sleep-btn'); if(!b)return; sleepP.querySelectorAll('.sleep-btn').forEach(x=>x.classList.remove('selected')); b.classList.add('selected'); selSleep = parseInt(b.dataset.value); });
   tagP.addEventListener('click', e => { const b = e.target.closest('.tag-btn'); if(!b)return; b.classList.toggle('selected'); if(b.classList.contains('selected')) selTags.add(b.dataset.value); else selTags.delete(b.dataset.value); });
-  submitBtn.addEventListener('click', () => { if(!selMood)return; saveTodayLog({mood:selMood,sleep_score:selSleep||0,symptoms:[...selTags],note:document.getElementById('note-input').value.trim()}); renderCheckin(); renderTask(); });
+  submitBtn.addEventListener('click', async () => {
+    if (!selMood) return;
+    await saveDailyLog({ mood: selMood, sleep_score: selSleep || 0, symptoms: [...selTags], note: document.getElementById('note-input').value.trim() });
+    renderCheckin();
+    renderTask();
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -350,8 +341,7 @@ function renderTask(){
 // 周报入口
 // ═══════════════════════════════════════════════════════════
 function renderWeeklyBanner(){
-  const total = loadAllLogs().length;
-  const chats = (JSON.parse(localStorage.getItem('stacy_logs')||'[]')).length;
+  const total = getLocalDailyLogs().length;
   if (total > 0) document.getElementById('weekly-icon-btn').style.display = '';
 }
 
@@ -376,12 +366,15 @@ function e(s){const d=document.createElement('div');d.textContent=s;return d.inn
 // ═══════════════════════════════════════════════════════════
 // 初始化
 // ═══════════════════════════════════════════════════════════
-(function(){
+(async function(){
   const code=localStorage.getItem('stacy_invite_code');if(!code){location.replace('index.html');return}
   const p=JSON.parse(localStorage.getItem('stacy_profile')||'null');if(!p||!p.name){location.replace('onboarding.html');return}
   const h=new Date().getHours();let g='早上好';if(h>=12&&h<18)g='下午好';if(h>=18)g='晚上好';
   document.getElementById('greeting').innerHTML=`${g}，<span class="name">${e(p.name)}</span>`;
+  // 先本地渲染，再云端合并刷新
   renderCheckin();renderTask();renderLogs();renderWeeklyBanner();renderReminderPreview();
+  await getDailyLogs();
+  renderCheckin();renderTask();renderWeeklyBanner();
 })();
 function renderReminderPreview(){
   try { const r=JSON.parse(localStorage.getItem('stacy_reminders')||'[]'); const active=r.filter(x=>x.enabled!==false); document.getElementById('reminder-preview').textContent=active.length?active.length+'个提醒已开启':(r.length?r.length+'个提醒（已关闭）':'设置提醒'); } catch {}

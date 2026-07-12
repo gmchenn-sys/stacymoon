@@ -93,10 +93,11 @@ body{
   <a class="nav-tab" href="reminder.html"><span class="nav-icon">💊</span>用药</a>
 </nav>
 
+<script src="supabase.js"></script>
+<script src="store.js"></script>
 <script>
 // ── 数据读取 ──────────────────────────────
 const profile = JSON.parse(localStorage.getItem('stacy_profile') || '{}');
-const dailyLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
 const chatLogs = JSON.parse(localStorage.getItem('stacy_logs') || '[]');
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
@@ -107,6 +108,9 @@ const DIET_MAP = { none:'没有特别', vegetarian:'素食', low_carb:'不吃碳
 
 const now = new Date();
 const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+
+(async function buildReport() {
+const dailyLogs = await getDailyLogs();
 
 // ── 生成报告纯文本 ──────────────────────────
 let report = '';
@@ -306,6 +310,7 @@ document.getElementById('copy-btn').addEventListener('click', async () => {
     setTimeout(() => { btn.textContent = '📋 复制全文'; btn.classList.remove('done'); }, 2500);
   }
 });
+})();
 </script>
 </body>
 </html>

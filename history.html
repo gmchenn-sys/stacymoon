@@ -134,8 +134,10 @@ body{
   <a class="nav-tab" href="reminder.html"><span class="nav-icon">💊</span>用药</a>
 </nav>
 
+<script src="supabase.js"></script>
+<script src="store.js"></script>
 <script>
-const dailyLogs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]').sort((a,b) => new Date(b.date) - new Date(a.date));
+let dailyLogs = [];
 const PER_PAGE = 10;
 let displayCount = 0;
 
@@ -146,7 +148,7 @@ const WEEKDAYS = ['日','一','二','三','四','五','六'];
 // ── 趋势：睡眠折线图 ──────────────────────────
 // ═══════════════════════════════════════════════════════════
 
-(function renderSleepChart() {
+function renderSleepChart() {
   const daysAgo30 = new Date(); daysAgo30.setDate(daysAgo30.getDate() - 29);
   daysAgo30.setHours(0,0,0,0);
   const dates = [];
@@ -202,19 +204,20 @@ const WEEKDAYS = ['日','一','二','三','四','五','六'];
   });
 
   document.getElementById('sleep-svg').innerHTML = svg;
-})();
+}
 
 // ═══════════════════════════════════════════════════════════
 // ── 趋势：情绪色块 ──────────────────────────
 // ═══════════════════════════════════════════════════════════
 
-(function renderMoodBlocks() {
+function renderMoodBlocks() {
   const daysAgo30 = new Date(); daysAgo30.setDate(daysAgo30.getDate() - 29);
   daysAgo30.setHours(0,0,0,0);
   const moodMap = {};
   dailyLogs.forEach(l => { if (l.mood) moodMap[l.date] = l.mood; });
 
   const el = document.getElementById('mood-blocks');
+  el.innerHTML = '';
   let hasAny = false;
   for (let i = 0; i < 30; i++) {
     const d = new Date(daysAgo30); d.setDate(d.getDate() + i);
@@ -227,13 +230,13 @@ const WEEKDAYS = ['日','一','二','三','四','五','六'];
     el.innerHTML += `<div class="mood-block ${cls}" title="${date.slice(5)}: ${mood||'无'}"></div>`;
   }
   if (!hasAny) { el.style.display = 'none'; document.getElementById('mood-empty').style.display = ''; }
-})();
+}
 
 // ═══════════════════════════════════════════════════════════
 // ── 趋势：高频症状 TOP3 ──────────────────────
 // ═══════════════════════════════════════════════════════════
 
-(function renderTopSymptoms() {
+function renderTopSymptoms() {
   const daysAgo30 = new Date(); daysAgo30.setDate(daysAgo30.getDate() - 30);
   const counts = {};
   dailyLogs.forEach(l => {
@@ -244,12 +247,13 @@ const WEEKDAYS = ['日','一','二','三','四','五','六'];
   const top3 = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 3);
 
   const el = document.getElementById('top-symptoms');
+  el.innerHTML = '';
   if (top3.length === 0) { el.style.display = 'none'; document.getElementById('symptom-empty').style.display = ''; return; }
 
   top3.forEach(([k, v]) => {
     el.innerHTML += `<div class="symptom-rank"><div class="rank-num">${v}</div><div class="rank-label">${SYMPTOM_LABELS[k] || k}</div><div class="rank-count">次</div></div>`;
   });
-})();
+}
 
 // ═══════════════════════════════════════════════════════════
 // ── 详情列表 ────────────────────────────────
@@ -303,9 +307,14 @@ function renderMoreLogs() {
 
 document.getElementById('load-more-btn').addEventListener('click', renderMoreLogs);
 
-// 初始加载
-renderMoreLogs();
-if (dailyLogs.length > PER_PAGE) document.getElementById('load-more-wrap').style.display = '';
+(async function init() {
+  dailyLogs = (await getDailyLogs()).sort((a,b) => new Date(b.date) - new Date(a.date));
+  renderSleepChart();
+  renderMoodBlocks();
+  renderTopSymptoms();
+  renderMoreLogs();
+  if (dailyLogs.length > PER_PAGE) document.getElementById('load-more-wrap').style.display = '';
+})();
 </script>
 </body>
 </html>

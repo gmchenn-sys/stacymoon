@@ -142,6 +142,7 @@
 </div>
 
 <script src="supabase.js"></script>
+<script src="store.js"></script>
 <script>
 // ── 假数据注入（仅 moon001 + 数据不足时） ──
 (function seedIfNeeded() {
@@ -245,8 +246,8 @@ function getDateLabel(d) {
 const to = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
 // ── 数据读取 ─────────────────────────────
-function loadWeekLogs() {
-  const all = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+async function loadWeekLogs() {
+  const all = await getDailyLogs();
   const today = new Date();
   const mon = getMonday(today);
   const sun = new Date(mon);
@@ -266,8 +267,8 @@ function loadWeekChats() {
 }
 
 // ── 渲染 ─────────────────────────────────
-(function init() {
-  const logs = loadWeekLogs();
+(async function init() {
+  const logs = await loadWeekLogs();
   const chats = loadWeekChats();
   const mon = getMonday(new Date());
   const sun = new Date(mon); sun.setDate(sun.getDate()+6);
