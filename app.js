@@ -31,6 +31,7 @@ const sendMessage = async () => {
     finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
     saveLog(text, reply, getLastStreamMeta());
+    maybeOfferCheckin(text);
     document.querySelector('.header').classList.add('compact');
   } catch (e) {
     console.error('Stacy 请求失败:', e);
@@ -57,6 +58,7 @@ const retryAi = async () => {
     finalizeStreamingBubble(aiBubble, reply);
     if (window.notifyDaughter) notifyDaughter(text, reply);
     saveLog(text, reply, getLastStreamMeta());
+    maybeOfferCheckin(text);
   } catch (e) {
     console.error('重试失败:', e);
     removeLoading(loadingId);
@@ -92,6 +94,97 @@ const removeRetryBubble = () => {
   if (el) el.remove();
   if (retryBubbleEl) retryBubbleEl.remove();
   retryBubbleEl = null;
+};
+
+// ── 聊天→打卡通道（确认后记，绝不自动落库）──
+const CHECKIN_PROMPT_KEY = 'stacy_checkin_prompt_dismissed';
+const CHECKIN_INTENT_OK = { emotional_support: 1, health_knowledge: 1 };
+
+const SYMPTOM_RULES = [
+  { keywords: ['潮热'], key: 'hot_flash', label: '潮热' },
+  { keywords: ['出汗', '盗汗', '热醒'], key: 'night_sweat', label: '盗汗' },
+  { keywords: ['睡不好', '失眠', '没睡', '热醒'], key: 'poor_sleep', label: '睡不好' },
+  { keywords: ['烦', '情绪', '心情差', '想哭'], key: 'mood_swing', label: '情绪波动' },
+  { keywords: ['关节', '腰疼', '膝盖'], key: 'joint_pain', label: '关节疼痛' },
+  { keywords: ['记性', '脑雾', '忘'], key: 'brain_fog', label: '脑雾' },
+];
+
+const checkinTodayStr = () => new Date().toISOString().slice(0, 10);
+
+const detectCheckinSymptoms = (userMessage) => {
+  const hits = [];
+  const seen = new Set();
+  for (const rule of SYMPTOM_RULES) {
+    if (!rule.keywords.some((kw) => userMessage.includes(kw))) continue;
+    if (seen.has(rule.key)) continue;
+    seen.add(rule.key);
+    hits.push({ key: rule.key, label: rule.label });
+  }
+  return hits;
+};
+
+const hasTodayCheckin = () => {
+  try {
+    const logs = JSON.parse(localStorage.getItem('stacy_daily_logs') || '[]');
+    const today = checkinTodayStr();
+    return logs.some((l) => l && l.date === today);
+  } catch {
+    return false;
+  }
+};
+
+const showCheckinPrompt = (userMessage, hits) => {
+  if (document.getElementById('checkin-prompt-bubble')) return;
+
+  const keys = hits.map((h) => h.key);
+  const labels = hits.map((h) => h.label).join('、');
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = 'bubble-row ai';
+  div.id = 'checkin-prompt-bubble';
+  div.innerHTML =
+    '<span class="avatar">🌙</span>' +
+    '<div class="bubble ai-bubble">' +
+    '要不要把今天记一笔？（症状：' + labels + '）' +
+    '<div class="retry-actions">' +
+    '<button class="retry-btn retry-primary" type="button" data-action="save">记一笔</button>' +
+    '<button class="retry-btn" type="button" data-action="dismiss">不用</button>' +
+    '</div></div>';
+
+  const bubble = div.querySelector('.ai-bubble');
+  div.querySelector('[data-action="save"]').addEventListener('click', async () => {
+    if (typeof saveDailyLog !== 'function') return;
+    await saveDailyLog({
+      mood: '',
+      sleep_score: 0,
+      symptoms: keys,
+      note: String(userMessage || '').slice(0, 40),
+    });
+    bubble.textContent = '已帮你记下 ✓';
+  });
+  div.querySelector('[data-action="dismiss"]').addEventListener('click', () => {
+    localStorage.setItem(CHECKIN_PROMPT_KEY, checkinTodayStr());
+    div.remove();
+  });
+
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+};
+
+/** 文字聊天回合结束后：命中健康信号且当天未打卡 → 建议气泡（不写 stacy_logs） */
+const maybeOfferCheckin = (userMessage) => {
+  if (!userMessage) return;
+  if (hasTodayCheckin()) return;
+  if (localStorage.getItem(CHECKIN_PROMPT_KEY) === checkinTodayStr()) return;
+
+  const hits = detectCheckinSymptoms(userMessage);
+  if (!hits.length) return;
+
+  const meta = typeof getLastStreamMeta === 'function' ? getLastStreamMeta() : null;
+  const intent = meta && meta.intent;
+  if (intent != null && !CHECKIN_INTENT_OK[intent]) return;
+
+  showCheckinPrompt(userMessage, hits);
 };
 
 /**
