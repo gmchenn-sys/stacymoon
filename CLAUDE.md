@@ -35,10 +35,19 @@
 
 **localStorage 关键 key**
 - `stacy_logs` — 当前聊天记录数组（{time, created_at, userMessage, aiReply, channel, call_id, intent}，最多 20 条）
-- `stacy_daily_logs` — 每日打卡记录数组（{date, mood, sleep_score, symptoms, note}）
+- `stacy_daily_logs` — 每日打卡记录数组（{date, mood, sleep_score, symptoms, note}；经 store.js 读写）
 - `stacy_invite_code` — 已核验的邀请码
 - `stacy_profile` — 用户档案 JSON（{name, age, symptoms, ...}）
 - `stacy_font_scale` — 全局字号缩放系数（默认 1，范围 0.8–1.3）
+- `stacy_daughter_code` — 亲属端绑定的妈妈邀请码（T-001）
+- `stacy_checkin_prompt_dismissed` — 聊天→打卡建议气泡当日免打扰标记（T-005）
+- `stacy_daily_brief` — 首页"今日关心"按天缓存 {date, text}（T-006，命中缓存绝不重调 Agent）
+
+**Supabase 补充**：`daily_logs` 表（`invite_code / date / mood / sleep_score / symptoms / note`，无唯一约束，读取端按 date 去重）。
+
+**统一数据层 `store.js`**（2026-07-11，T-002）：打卡数据唯一读写入口——`getDailyLogs()`（云端+本地按 date 合并、云端优先、失败降级本地、空数组不覆盖非空本地）、`saveDailyLog(data)`。home/history/report/weekly 四页均走它，**新页面禁止直读 `stacy_daily_logs`**。
+
+**缓存击穿约定**：index.html 的 `api.js` / `app.js` 带 `?v=N`，改动这两个文件必须同步 +1。
 
 ## 字号缩放机制
 
