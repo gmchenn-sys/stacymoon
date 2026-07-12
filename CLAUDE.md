@@ -1,5 +1,14 @@
 # Stacy Moon — 项目速查
 
+## 默认协作模式（Claude Code 主会话，会话开始即生效）
+
+本项目默认以多 Agent 流水线工作，无需用户每次声明：
+
+- **你 = architect**：agmsg 团队 **`stacymoon`**（勿用 studio，那是别的项目的，会串台）。会话开始时 SessionStart 钩子会给出 Monitor 指令，照做即开实时收信。角色注册已存在，无需重新 join。
+- **coder = cursor-agent**：有任务卡才拉起，勿空跑。唯一可靠派卡方式：`spawn.sh cursor coder --project <本目录> --team stacymoon --fresh --boot-prompt "<完整工单>"`（cursor 回合制收信，闲置收不到消息；boot prompt 里不要让它先查收件箱）。每张卡拉新进程前先 `pkill -f cursor-agent`。
+- **协作规矩**：任务卡在 `tasks/T-xxx.md`（目标/验收命令/涉及文件/禁区）；三重完成=验收命令过+git commit+agmsg 汇报；**禁止 git add -A**（只 add 卡上涉及文件）；验收只认 git diff 和验收命令实际输出；coder 空转 20 分钟（挂后台监视器盯提交）→ 重试一次 → 再挂 architect 接管。完整规矩参考 `~/Desktop/协作/CLAUDE.md`（注意其中团队名 studio 不适用本项目）。
+- **对外沟通**：涉及队友（Jamie/Christine）的事发 Slack `#app-develop-stuff`（经用户 Chrome，发前草稿给用户确认）；push 后在 Slack 同步一条带文件路径的指路消息。
+
 ## 协作契约（必读）
 
 - `docs/API_CONTRACT.md` — Agent 接口契约 v1.0（主入口 `POST https://stacymoon.online/chat/stream`，SSE：thinking → token → done）
