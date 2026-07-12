@@ -55,6 +55,15 @@
     }
     .font-scale-btn:active{border-color:var(--accent);color:#fff;background:rgba(249,115,22,0.15)}
 
+    /* ── 今日关心 ─────── */
+    .brief-card{
+      background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(234,179,8,0.04));
+      border:1px solid rgba(249,115,22,0.1);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;
+    }
+    .brief-header{font-size:0.7rem;color:var(--text-muted);letter-spacing:1px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .brief-header .icon{font-size:0.85rem}
+    .brief-body{font-size:0.88rem;color:var(--text);line-height:1.55}
+
     /* ── 打卡卡片(未打卡) ── */
     .checkin-card{
       background:linear-gradient(135deg,rgba(249,115,22,0.1),rgba(139,92,246,0.06));
@@ -202,6 +211,11 @@
   </div>
 </div>
 
+<div class="brief-card" id="brief-card" style="display:none">
+  <div class="brief-header"><span class="icon">💛</span><span>Stacy 今日关心</span></div>
+  <div class="brief-body" id="brief-body"></div>
+</div>
+
 <div class="checkin-card" id="checkin-card">
   <div class="checkin-title"><span class="dot"></span>今日身体打卡</div>
   <div id="checkin-content"></div>
@@ -239,6 +253,7 @@
 
 <script src="supabase.js"></script>
 <script src="store.js"></script>
+<script src="api.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // 打卡配置
@@ -303,7 +318,85 @@ function bindFormEvents() {
     await saveDailyLog({ mood: selMood, sleep_score: selSleep || 0, symptoms: [...selTags], note: document.getElementById('note-input').value.trim() });
     renderCheckin();
     renderTask();
+    loadDailyBrief();
   });
+}
+
+// ═══════════════════════════════════════════════════════════
+// Stacy 今日关心（每天最多一次 Agent 调用，按天缓存）
+// ═══════════════════════════════════════════════════════════
+const BRIEF_KEY = 'stacy_daily_brief';
+let _briefLoading = false;
+
+function getRecentChatSnippet() {
+  let logs = [];
+  try { logs = JSON.parse(localStorage.getItem('stacy_logs') || '[]'); } catch { return ''; }
+  if (!logs.length) return '';
+  const last = logs[logs.length - 1];
+  return ((last.userMessage || last.user_message || '') + '').slice(0, 30);
+}
+
+function hideBriefCard() {
+  const card = document.getElementById('brief-card');
+  if (card) card.style.display = 'none';
+}
+
+function showBriefCard(text) {
+  const card = document.getElementById('brief-card');
+  const body = document.getElementById('brief-body');
+  if (!card || !body || !text) return;
+  body.textContent = text;
+  card.style.display = '';
+}
+
+async function loadDailyBrief() {
+  const today = getToday();
+  const todayLog = getTodayLog();
+  const chatSnippet = getRecentChatSnippet();
+
+  // 无今日打卡且无聊天 → 不调不显示
+  if (!todayLog && !chatSnippet) {
+    hideBriefCard();
+    return;
+  }
+
+  // 当天缓存命中 → 直接显示，绝不再调 Agent
+  try {
+    const cached = JSON.parse(localStorage.getItem(BRIEF_KEY) || 'null');
+    if (cached && cached.date === today && cached.text) {
+      showBriefCard(cached.text);
+      return;
+    }
+  } catch {}
+
+  // 进行中或已有缓存写入窗口：防止 init 双调并发打两次 Agent
+  if (_briefLoading) return;
+  _briefLoading = true;
+
+  // 组装 prompt
+  const parts = [];
+  if (todayLog) {
+    const moodLabel = (MOODS.find(m => m.emoji === todayLog.mood) || {}).label || todayLog.mood || '';
+    if (moodLabel) parts.push('心情' + moodLabel);
+    if (todayLog.sleep_score) parts.push('睡眠' + todayLog.sleep_score + '分');
+    const symptomsStr = (todayLog.symptoms || []).map(s => SYMPTOM_LABEL_MAP[s] || s).filter(s => s && s !== 'none').join('、');
+    if (symptomsStr) parts.push('症状' + symptomsStr);
+  }
+  let status = parts.length ? parts.join('，') : '暂无打卡';
+  if (chatSnippet) status += '。最近聊到：' + chatSnippet;
+  const prompt = '用户今日状态：' + status + '。请用一句话（30字以内）温柔地关心她或给一个当天可执行的小建议，直接说内容。';
+
+  try {
+    const reply = await askStacyStream(prompt);
+    const text = (reply || '').trim();
+    if (!text) { hideBriefCard(); return; }
+    localStorage.setItem(BRIEF_KEY, JSON.stringify({ date: today, text: text }));
+    showBriefCard(text);
+  } catch {
+    hideBriefCard();
+  } finally {
+    _briefLoading = false;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -373,8 +466,10 @@ function e(s){const d=document.createElement('div');d.textContent=s;return d.inn
   document.getElementById('greeting').innerHTML=`${g}，<span class="name">${e(p.name)}</span>`;
   // 先本地渲染，再云端合并刷新
   renderCheckin();renderTask();renderLogs();renderWeeklyBanner();renderReminderPreview();
+  loadDailyBrief();
   await getDailyLogs();
   renderCheckin();renderTask();renderWeeklyBanner();
+  loadDailyBrief();
 })();
 function renderReminderPreview(){
   try { const r=JSON.parse(localStorage.getItem('stacy_reminders')||'[]'); const active=r.filter(x=>x.enabled!==false); document.getElementById('reminder-preview').textContent=active.length?active.length+'个提醒已开启':(r.length?r.length+'个提醒（已关闭）':'设置提醒'); } catch {}
