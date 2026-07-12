@@ -80,13 +80,14 @@ async function saveDailyLog(data) {
   try {
     const code = localStorage.getItem('stacy_invite_code');
     if (!code) return;
-    await fetch(`${window.SUPABASE_URL}/rest/v1/daily_logs`, {
+    // upsert：同一 (invite_code, date) 更新而非重复插行（需表上有唯一约束，见 docs/TODO.md 建表 SQL）
+    await fetch(`${window.SUPABASE_URL}/rest/v1/daily_logs?on_conflict=invite_code,date`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': window.SUPABASE_KEY,
         'Authorization': 'Bearer ' + window.SUPABASE_KEY,
-        'Prefer': 'return=minimal',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
       body: JSON.stringify({
         invite_code: code,

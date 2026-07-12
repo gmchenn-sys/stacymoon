@@ -468,11 +468,29 @@ const vtCompleteTurn = (msg) => {
   vtResetTurn();
 };
 
+// 延迟计时：STT final → 首 token → 回合完成（供语音链路排障，见控制台 [VOICE][TIMING]）
+let vtFinalAt = 0;
+let vtFirstTokenLogged = false;
+
 // WebSocket 文本帧分发
 const handleVoiceTextFrame = (raw) => {
   let msg;
   try { msg = JSON.parse(raw); } catch { return; }
   if (!msg || !msg.type) return;
+  console.log('[VOICE][EVT]', msg.type, new Date().toISOString().slice(11, 23));
+
+  if ((msg.type === 'transcript' || msg.type === 'user_transcript') && (msg.final === true || msg.is_final === true)) {
+    vtFinalAt = Date.now();
+    vtFirstTokenLogged = false;
+  }
+  if ((msg.type === 'token' || msg.type === 'bot_token') && vtFinalAt && !vtFirstTokenLogged) {
+    vtFirstTokenLogged = true;
+    console.log('[VOICE][TIMING] STT final → 首 token:', Date.now() - vtFinalAt, 'ms');
+  }
+  if ((msg.type === 'done' || msg.type === 'turn_complete') && vtFinalAt) {
+    console.log('[VOICE][TIMING] STT final → done:', Date.now() - vtFinalAt, 'ms');
+    vtFinalAt = 0;
+  }
 
   switch (msg.type) {
     case 'call_start':
