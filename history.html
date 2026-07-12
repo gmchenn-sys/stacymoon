@@ -74,6 +74,26 @@ body{
 .load-more-btn:active{border-color:var(--accent);color:var(--accent)}
 .load-more-btn:disabled{opacity:0.4;cursor:default}
 
+/* ── Stacy 周/月健康汇总 ──── */
+.health-summary-card{
+  background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(234,179,8,0.04));
+  border:1px solid rgba(249,115,22,0.1);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;
+}
+.health-summary-header{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;
+}
+.health-summary-title{font-size:0.7rem;color:var(--text-muted);letter-spacing:1px;display:flex;align-items:center;gap:6px}
+.health-summary-title .icon{font-size:0.85rem}
+.period-tabs{display:flex;gap:4px}
+.period-tab{
+  padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text-muted);font-family:inherit;font-size:0.68rem;cursor:pointer;
+  transition:border-color 0.15s,background 0.15s,color 0.15s;
+}
+.period-tab.active{border-color:var(--accent);background:rgba(249,115,22,0.15);color:var(--accent)}
+.period-tab:active{opacity:0.85}
+.health-summary-body{font-size:0.88rem;color:var(--text);line-height:1.55;white-space:pre-wrap}
+
 /* ── 今日打卡表单（移植自 home.html，F1/F3） ──── */
 .checkin-card{
   background:linear-gradient(135deg,rgba(249,115,22,0.1),rgba(139,92,246,0.06));
@@ -173,6 +193,17 @@ body{
   <div class="section-label" style="margin-top:0">🏷️ 高频症状 TOP3</div>
   <div class="top-symptoms" id="top-symptoms"></div>
   <div class="no-data" id="symptom-empty" style="display:none">还没有症状记录</div>
+</div>
+
+<div class="health-summary-card" id="health-summary-card" style="display:none">
+  <div class="health-summary-header">
+    <div class="health-summary-title"><span class="icon">💛</span><span id="health-summary-label">Stacy 周总结</span></div>
+    <div class="period-tabs" id="period-tabs">
+      <button type="button" class="period-tab active" data-period="week">周</button>
+      <button type="button" class="period-tab" data-period="month">月</button>
+    </div>
+  </div>
+  <div class="health-summary-body" id="health-summary-body"></div>
 </div>
 
 <div class="section" style="margin-top:24px"><div class="section-label"><span class="dot"></span>打卡详情</div></div>
@@ -472,6 +503,104 @@ function renderMoreLogs() {
 
 document.getElementById('load-more-btn').addEventListener('click', renderMoreLogs);
 
+// ═══════════════════════════════════════════════════════════
+// ── Stacy 周/月健康汇总（契约 §4.1，失败静默隐藏） ────
+// ═══════════════════════════════════════════════════════════
+const SUMMARY_KEY = 'stacy_health_summary';
+let _summaryPeriod = 'week';
+let _summaryReqId = 0;
+
+function hideHealthSummary() {
+  const card = document.getElementById('health-summary-card');
+  if (card) card.style.display = 'none';
+}
+
+function showHealthSummary(text) {
+  const card = document.getElementById('health-summary-card');
+  const body = document.getElementById('health-summary-body');
+  const label = document.getElementById('health-summary-label');
+  if (!card || !body || !text) return;
+  body.textContent = text;
+  if (label) label.textContent = _summaryPeriod === 'month' ? 'Stacy 月总结' : 'Stacy 周总结';
+  card.style.display = '';
+}
+
+function syncPeriodTabs() {
+  document.querySelectorAll('#period-tabs .period-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.period === _summaryPeriod);
+  });
+}
+
+function parseSummaryText(data) {
+  if (typeof data === 'string') {
+    const t = data.trim();
+    if (!t) return null;
+    try {
+      const parsed = JSON.parse(t);
+      return parseSummaryText(parsed);
+    } catch {
+      return t;
+    }
+  }
+  if (data && typeof data === 'object') {
+    if (typeof data.summary === 'string' && data.summary.trim()) return data.summary.trim();
+    if (typeof data.text === 'string' && data.text.trim()) return data.text.trim();
+    if (data.data) return parseSummaryText(data.data);
+  }
+  return null;
+}
+
+async function loadHealthSummary(period) {
+  _summaryPeriod = period === 'month' ? 'month' : 'week';
+  syncPeriodTabs();
+
+  const today = getToday();
+  const code = (localStorage.getItem('stacy_invite_code') || '').trim();
+  if (!code) { hideHealthSummary(); return; }
+
+  try {
+    const cached = JSON.parse(localStorage.getItem(SUMMARY_KEY) || 'null');
+    if (cached && cached.date === today && cached.period === _summaryPeriod && cached.text) {
+      showHealthSummary(cached.text);
+      return;
+    }
+  } catch {}
+
+  const period = _summaryPeriod;
+  const reqId = ++_summaryReqId;
+  hideHealthSummary();
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const url = 'https://stacymoon.online/v1/conversations/' + encodeURIComponent(code) + '/health-summary?period=' + period;
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const raw = await res.text();
+    let data = raw;
+    try { data = JSON.parse(raw); } catch {}
+    const text = parseSummaryText(data);
+    if (reqId !== _summaryReqId) return;
+    if (!text) { hideHealthSummary(); return; }
+    localStorage.setItem(SUMMARY_KEY, JSON.stringify({ date: today, period: period, text: text }));
+    showHealthSummary(text);
+  } catch (e) {
+    if (reqId !== _summaryReqId) return;
+    console.warn('health-summary failed', e && e.message ? e.message : e);
+    hideHealthSummary();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+document.getElementById('period-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.period-tab');
+  if (!btn) return;
+  const period = btn.dataset.period;
+  if (!period || period === _summaryPeriod) return;
+  loadHealthSummary(period);
+});
+
 (async function init() {
   dailyLogs = (await getDailyLogs()).sort((a,b) => new Date(b.date) - new Date(a.date));
   renderCheckin();
@@ -480,6 +609,7 @@ document.getElementById('load-more-btn').addEventListener('click', renderMoreLog
   renderTopSymptoms();
   renderMoreLogs();
   if (dailyLogs.length > PER_PAGE) document.getElementById('load-more-wrap').style.display = '';
+  loadHealthSummary('week');
 })();
 </script>
 </body>
