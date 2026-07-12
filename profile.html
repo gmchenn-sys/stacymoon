@@ -142,6 +142,19 @@ body{
 </div>
 <div class="section"><div class="section-label"><span class="dot"></span>用药/保健品</div><input class="text-input" id="f-medication" placeholder="例如：钙片、维D、降压药…"></div>
 
+<div class="section">
+  <div class="section-label"><span class="dot"></span>隐私</div>
+  <div class="option-list">
+    <div class="option" id="share-daughter-opt" role="checkbox" aria-checked="false">
+      <div class="option-check"></div>
+      <div>
+        <div>分享给关心的人</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">开启后，每次对话会通知关心你的人</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="save-wrap"><button class="save-btn" id="save-btn" type="button">保存</button></div>
 
 <div class="save-wrap" style="margin-top:-8px">
@@ -193,8 +206,24 @@ if (Array.isArray(profile.symptoms)) {
   });
 }
 
+// ── 分享开关（F10）────────────────────────
+(function() {
+  const opt = document.getElementById('share-daughter-opt');
+  const on = localStorage.getItem('stacy_share_daughter') === '1';
+  if (on) { opt.classList.add('selected'); opt.setAttribute('aria-checked', 'true'); }
+  opt.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const next = !opt.classList.contains('selected');
+    opt.classList.toggle('selected', next);
+    opt.setAttribute('aria-checked', next ? 'true' : 'false');
+    if (next) localStorage.setItem('stacy_share_daughter', '1');
+    else localStorage.removeItem('stacy_share_daughter');
+  });
+})();
+
 // ── 单选交互 ──────────────────────────────
 document.querySelectorAll('.option-list').forEach(list => {
+  if (list.querySelector('#share-daughter-opt')) return;
   const isRadio = !!list.querySelector('.option-radio');
   list.addEventListener('click', e => {
     const opt = e.target.closest('.option'); if (!opt) return;

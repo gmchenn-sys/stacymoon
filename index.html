@@ -255,7 +255,15 @@
   </main>
 
   <footer class="input-area">
-    <p class="notify-hint">每次对话，关心你的人都会收到通知</p>
+    <p class="notify-hint" id="notify-hint"></p>
+    <script>
+    (function(){
+      var el = document.getElementById('notify-hint');
+      el.textContent = localStorage.getItem('stacy_share_daughter') === '1'
+        ? '每次对话，关心你的人都会收到通知'
+        : '想让家人收到你的动态？在「我的」里开启分享';
+    })();
+    </script>
     <div class="input-row">
       <button id="voice-btn" class="voice-btn" title="语音对话">
         <svg id="voice-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

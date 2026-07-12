@@ -42,6 +42,9 @@ function buildCheckinSection() {
 }
 
 window.notifyDaughter = async function(userMessage, aiReply) {
+  // F10：默认不推，仅用户主动开启分享后才发飞书
+  if (localStorage.getItem('stacy_share_daughter') !== '1') return;
+
   const code = localStorage.getItem('stacy_invite_code');
   if (!code) return;
 
