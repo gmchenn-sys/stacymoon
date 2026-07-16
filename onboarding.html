@@ -112,7 +112,7 @@
   if (!inviteCode) { window.location.replace('index.html'); return; }
   const profile = JSON.parse(localStorage.getItem('stacy_profile') || 'null');
   // 已有完整档案 → 跳过建档，直接去首页
-  if (profile && profile.name) { window.location.replace('home.html'); return; }
+  if (profile && profile.name) { window.location.replace('index.html'); return; }
 })();
 
 // ── 配置 ─────────────────────────────────
@@ -350,7 +350,7 @@ btnNext.addEventListener('click', () => {
   saveCurrentStep();
 
   if (currentStep >= totalSteps - 1) {
-    window.location.href = 'home.html';
+    window.location.href = 'index.html';
     return;
   }
   goToStep(currentStep + 1);

@@ -336,13 +336,9 @@
         window.location.replace('onboarding.html');
         return;
       }
-      // 从首页点进来的 → 正常聊天；否则 → 先去首页
-      if (sessionStorage.getItem('from_home') === '1') {
-        sessionStorage.removeItem('from_home');
-        overlay.style.display = 'none';
-      } else {
-        window.location.replace('home.html');
-      }
+      // 回访用户（有邀请码+档案）直接留在聊天页；清掉旧首页跳转残留
+      sessionStorage.removeItem('from_home');
+      overlay.style.display = 'none';
       return;
     }
 
@@ -399,11 +395,9 @@
           }
 
           overlay.style.display = 'none';
-          // 检查是否需要建档
+          // 检查是否需要建档；有档案则留在聊天页
           if (!profile || !profile.name) {
             window.location.replace('onboarding.html');
-          } else {
-            window.location.replace('home.html');
           }
         } else {
           err.textContent = '邀请码无效，请核对后再试';
