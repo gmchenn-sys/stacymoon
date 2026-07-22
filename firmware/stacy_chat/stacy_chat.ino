@@ -1,4 +1,4 @@
-// T-014/T-015: WiFi + POST /chat/stream + onboard WS2812 mood LED by intent
+// T-014/T-015/T-016: WiFi + POST /chat/stream + onboard WS2812 mood LED by intent (carousel)
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
@@ -9,6 +9,16 @@ static const int PORT = 443;
 static const char* PATH = "/chat/stream";
 
 static const int RGB_PIN = 48;
+
+// T-016: rotate 3 mood messages so LED color actually changes
+static const char* MESSAGES[] = {
+  "闺女今天给我打电话了，我们聊得挺开心",
+  "我这两天心里特别烦，晚上老睡不着，总觉得孤单难受",
+  "医生说我血压有点偏高，平时饮食上要注意些什么？",
+};
+static const int MESSAGE_COUNT = 3;
+static int messageIndex = 0;
+static bool wifiOk = false;
 
 static String tokenAccum;
 static String finalResponse;
@@ -117,7 +127,7 @@ static void handleSseData(const String& jsonLine) {
   }
 }
 
-static bool chatOnce() {
+static bool chatOnce(const char* message) {
   tokenAccum = "";
   finalResponse = "";
   finalIntent = "";
@@ -137,9 +147,17 @@ static bool chatOnce() {
     return false;
   }
 
-  // Body matches T-014 curl probe
+  // Escape message for JSON string (minimal: quotes + backslash)
+  String escapedMsg;
+  for (const char* p = message; *p; p++) {
+    if (*p == '"' || *p == '\\') {
+      escapedMsg += '\\';
+    }
+    escapedMsg += *p;
+  }
+
   String body =
-      "{\"message\":\"你好\",\"user_id\":\"" + String(STACY_USER_ID) +
+      "{\"message\":\"" + escapedMsg + "\",\"user_id\":\"" + String(STACY_USER_ID) +
       "\",\"reply_mode\":\"text\",\"channel\":\"text\","
       "\"stacy_profile\":{\"name\":\"测试\",\"age\":50}}";
 
@@ -226,22 +244,54 @@ void setup() {
   Serial.begin(115200);
   delay(800);
   Serial.println();
-  Serial.println("stacy_chat ready");
+  Serial.println("stacy_chat ready (T-016 carousel)");
 
   ledWrite(40, 40, 0);  // boot: yellow
 
-  if (!connectWifi()) {
+  wifiOk = connectWifi();
+  if (!wifiOk) {
     Serial.println("abort: no WiFi");
     return;
   }
 
-  ledWrite(0, 0, 50);  // WiFi OK, before chat: blue
-
-  bool ok = chatOnce();
-  Serial.print("chatOnce ");
-  Serial.println(ok ? "OK" : "FAIL");
+  ledWrite(0, 0, 50);  // WiFi OK: blue, loop will start carousel
 }
 
 void loop() {
-  delay(1000);
+  if (!wifiOk) {
+    delay(1000);
+    return;
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi lost — waiting (no reconnect in loop)");
+    ledWrite(90, 0, 0);
+    delay(2000);
+    return;
+  }
+
+  int idx = messageIndex;
+  const char* msg = MESSAGES[idx];
+  Serial.println();
+  Serial.print("=== round msg#");
+  Serial.print(idx + 1);
+  Serial.print("/");
+  Serial.print(MESSAGE_COUNT);
+  Serial.println(" ===");
+  Serial.print("【发送】");
+  Serial.println(msg);
+
+  bool ok = chatOnce(msg);
+  Serial.print("chatOnce ");
+  Serial.println(ok ? "OK" : "FAIL");
+  Serial.print("round#");
+  Serial.print(idx + 1);
+  Serial.print(" intent=");
+  Serial.println(finalIntent);
+
+  // Hold mood color so human eye can see it
+  Serial.println("hold LED 12s ...");
+  delay(12000);
+
+  messageIndex = (messageIndex + 1) % MESSAGE_COUNT;
 }
