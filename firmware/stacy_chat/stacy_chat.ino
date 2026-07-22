@@ -1,4 +1,4 @@
-// T-014: WiFi + POST /chat/stream, parse SSE, print response + intent
+// T-014/T-015: WiFi + POST /chat/stream + onboard WS2812 mood LED by intent
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
@@ -8,10 +8,60 @@ static const char* HOST = "stacymoon.online";
 static const int PORT = 443;
 static const char* PATH = "/chat/stream";
 
+static const int RGB_PIN = 48;
+
 static String tokenAccum;
 static String finalResponse;
 static String finalIntent;
 static bool gotDone = false;
+
+static void ledWrite(uint8_t r, uint8_t g, uint8_t b) {
+  rgbLedWrite(RGB_PIN, r, g, b);
+}
+
+static void setLedByIntent(const String& intent) {
+  uint8_t r = 20, g = 20, b = 20;
+  const char* colorName = "dim_white";
+
+  if (intent == "general") {
+    r = 0; g = 60; b = 0;
+    colorName = "green";
+  } else if (intent == "health_knowledge") {
+    r = 0; g = 40; b = 60;
+    colorName = "cyan_blue";
+  } else if (intent == "emotional_support") {
+    r = 70; g = 25; b = 0;
+    colorName = "warm_orange";
+  } else if (intent == "crisis") {
+    r = 90; g = 0; b = 0;
+    colorName = "red";
+    for (int i = 0; i < 3; i++) {
+      ledWrite(90, 0, 0);
+      delay(200);
+      ledWrite(0, 0, 0);
+      delay(200);
+    }
+  }
+
+  ledWrite(r, g, b);
+  Serial.print("LED intent=");
+  Serial.print(intent.length() ? intent : "(empty)");
+  Serial.print(" -> (");
+  Serial.print(r);
+  Serial.print(",");
+  Serial.print(g);
+  Serial.print(",");
+  Serial.print(b);
+  Serial.print(") ");
+  Serial.println(colorName);
+}
+
+static void yellowSlowBlinkOnce() {
+  ledWrite(40, 40, 0);
+  delay(400);
+  ledWrite(0, 0, 0);
+  delay(400);
+}
 
 static bool connectWifi() {
   Serial.print("WiFi connecting to ");
@@ -23,7 +73,7 @@ static bool connectWifi() {
 
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 40) {
-    delay(500);
+    yellowSlowBlinkOnce();
     Serial.print(".");
     attempts++;
   }
@@ -31,6 +81,7 @@ static bool connectWifi() {
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi FAILED (check 2.4GHz SSID/pass; S3 has no 5G)");
+    ledWrite(90, 0, 0);  // WiFi fail: solid red
     return false;
   }
 
@@ -71,6 +122,8 @@ static bool chatOnce() {
   finalResponse = "";
   finalIntent = "";
   gotDone = false;
+
+  ledWrite(0, 0, 50);  // waiting for reply: blue
 
   WiFiClientSecure client;
   client.setInsecure();
@@ -164,6 +217,8 @@ static bool chatOnce() {
   Serial.print("【intent】");
   Serial.println(finalIntent);
 
+  setLedByIntent(finalIntent);
+
   return httpCode == 200 && finalResponse.length() > 0;
 }
 
@@ -173,10 +228,14 @@ void setup() {
   Serial.println();
   Serial.println("stacy_chat ready");
 
+  ledWrite(40, 40, 0);  // boot: yellow
+
   if (!connectWifi()) {
     Serial.println("abort: no WiFi");
     return;
   }
+
+  ledWrite(0, 0, 50);  // WiFi OK, before chat: blue
 
   bool ok = chatOnce();
   Serial.print("chatOnce ");
