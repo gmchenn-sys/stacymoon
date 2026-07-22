@@ -10,6 +10,14 @@ static const char* PATH = "/chat/stream";
 
 static const int RGB_PIN = 48;
 
+// T-020: external dual-color LED (red+green chips), digital drive
+static const int EXT_RED = 4;   // S 脚
+static const int EXT_GREEN = 5; // 中间脚
+static void extLed(bool redOn, bool greenOn) {
+  digitalWrite(EXT_RED, redOn ? HIGH : LOW);
+  digitalWrite(EXT_GREEN, greenOn ? HIGH : LOW);
+}
+
 // T-016: rotate 3 mood messages so LED color actually changes
 static const char* MESSAGES[] = {
   "闺女今天给我打电话了，我们聊得挺开心",
@@ -30,27 +38,35 @@ static void ledWrite(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 static void setLedByIntent(const String& intent) {
-  uint8_t r = 20, g = 20, b = 20;
+  uint8_t r = 40, g = 40, b = 40;
   const char* colorName = "dim_white";
 
   if (intent == "general") {
-    r = 0; g = 60; b = 0;
+    r = 0; g = 130; b = 0;
     colorName = "green";
+    extLed(false, true);   // ext: 绿
   } else if (intent == "health_knowledge") {
-    r = 0; g = 40; b = 60;
-    colorName = "cyan_blue";
+    r = 0; g = 50; b = 150;
+    colorName = "blue";
+    extLed(true, true);    // ext: 橙(红+绿)
   } else if (intent == "emotional_support") {
-    r = 70; g = 25; b = 0;
-    colorName = "warm_orange";
+    r = 160; g = 50; b = 0;
+    colorName = "orange";
+    extLed(true, true);    // ext: 橙(红+绿)
   } else if (intent == "crisis") {
-    r = 90; g = 0; b = 0;
+    r = 160; g = 0; b = 0;
     colorName = "red";
     for (int i = 0; i < 3; i++) {
-      ledWrite(90, 0, 0);
+      ledWrite(160, 0, 0);
+      extLed(true, false);
       delay(200);
       ledWrite(0, 0, 0);
+      extLed(false, false);
       delay(200);
     }
+    extLed(true, false);   // ext: 红常亮
+  } else {
+    extLed(false, false);
   }
 
   ledWrite(r, g, b);
@@ -66,10 +82,42 @@ static void setLedByIntent(const String& intent) {
   Serial.println(colorName);
 }
 
+// Boot mood-color showcase: green → blue → orange → red (~900ms each)
+static void showcaseMoodColors() {
+  struct { const char* name; uint8_t r, g, b; } colors[] = {
+    {"green",  0,   130, 0},
+    {"blue",   0,    50, 150},
+    {"orange", 160,  50, 0},
+    {"red",    160,   0, 0},
+  };
+  for (int i = 0; i < 4; i++) {
+    // ext dual-color mirror: green→绿 / blue→灭(双色灯无蓝) / orange→橙 / red→红
+    if (i == 0)      extLed(false, true);
+    else if (i == 1) extLed(false, false);
+    else if (i == 2) extLed(true, true);
+    else             extLed(true, false);
+    Serial.print("SHOWCASE: ");
+    Serial.print(colors[i].name);
+    Serial.print(" -> (");
+    Serial.print(colors[i].r);
+    Serial.print(",");
+    Serial.print(colors[i].g);
+    Serial.print(",");
+    Serial.print(colors[i].b);
+    Serial.println(")");
+    ledWrite(colors[i].r, colors[i].g, colors[i].b);
+    delay(900);
+  }
+  ledWrite(0, 0, 0);
+  extLed(false, false);
+}
+
 static void yellowSlowBlinkOnce() {
   ledWrite(40, 40, 0);
+  extLed(true, true);   // ext 橙闪 = 连WiFi中
   delay(400);
   ledWrite(0, 0, 0);
+  extLed(false, false);
   delay(400);
 }
 
@@ -242,11 +290,14 @@ static bool chatOnce(const char* message) {
 
 void setup() {
   Serial.begin(115200);
+  pinMode(EXT_RED, OUTPUT);
+  pinMode(EXT_GREEN, OUTPUT);
+  extLed(false, false);
   delay(800);
   Serial.println();
-  Serial.println("stacy_chat ready (T-016 carousel)");
+  Serial.println("stacy_chat ready (T-019 mood showcase)");
 
-  ledWrite(40, 40, 0);  // boot: yellow
+  showcaseMoodColors();
 
   wifiOk = connectWifi();
   if (!wifiOk) {
