@@ -566,14 +566,13 @@ async function loadHealthSummary(period) {
     }
   } catch {}
 
-  const period = _summaryPeriod;
   const reqId = ++_summaryReqId;
   hideHealthSummary();
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const url = 'https://stacymoon.online/v1/conversations/' + encodeURIComponent(code) + '/health-summary?period=' + period;
+    const url = 'https://stacymoon.online/v1/conversations/' + encodeURIComponent(code) + '/health-summary?period=' + _summaryPeriod;
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.text();
@@ -582,7 +581,7 @@ async function loadHealthSummary(period) {
     const text = parseSummaryText(data);
     if (reqId !== _summaryReqId) return;
     if (!text) { hideHealthSummary(); return; }
-    localStorage.setItem(SUMMARY_KEY, JSON.stringify({ date: today, period: period, text: text }));
+    localStorage.setItem(SUMMARY_KEY, JSON.stringify({ date: today, period: _summaryPeriod, text: text }));
     showHealthSummary(text);
   } catch (e) {
     if (reqId !== _summaryReqId) return;
