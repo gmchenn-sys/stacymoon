@@ -109,7 +109,8 @@
     .nav-tab:active{opacity:0.7}
     /* input-area 让出 nav 空间 */
     .input-area{bottom:60px !important}
-    .chat-box{padding-bottom:140px !important}
+    /* 跟随 .input-area 实测高度 + 底栏 60px + 余量 16px（勿写死） */
+    .chat-box{padding-bottom:calc(var(--input-area-h, 100px) + 60px + 16px) !important}
     /* 确保页面整体可滚动，header 在文档流顶部 */
     body{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
     /* ── 今日 Dashboard（T-007 IA 改版：首页并入聊天页顶部，可折叠）── */
@@ -315,7 +316,7 @@
   <script src="api.js?v=2"></script>
   <script src="notify.js?v=2"></script>
   <script src="store.js?v=2"></script>
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=19"></script>
   <script src="dashboard.js?v=1"></script>
 
   <script>

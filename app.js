@@ -255,6 +255,18 @@ const appendBubble = (role, text) => {
   return div;
 };
 
+/** 居中系统状态条（非 Stacy 回复，不落库） */
+const appendSystemNote = (text) => {
+  const box = document.getElementById('chat-box');
+  const div = document.createElement('div');
+  div.className = 'system-note';
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  window.scrollTo(0, document.documentElement.scrollHeight);
+  return div;
+};
+
 let loadingCounter = 0;
 const appendLoading = () => {
   const id = 'loading-' + (++loadingCounter);
@@ -310,6 +322,10 @@ const updateStreamingBubble = (el, text) => {
 const finalizeStreamingBubble = (el, text) => {
   const bubble = el.querySelector('.ai-bubble');
   if (bubble) bubble.textContent = text;
+  const box = document.getElementById('chat-box');
+  if (box) box.scrollTop = box.scrollHeight;
+  // 页面实际滚动在 body（index 设了 overflow-y:auto），一并滚到底
+  window.scrollTo(0, document.documentElement.scrollHeight);
 };
 
 const removeStreamingBubble = (el) => {
@@ -534,7 +550,7 @@ const setVoiceIcon = (type) => {
 
 // ── 音频播放器（AudioWorklet 连续播放 bot 的 PCM 流）────────
 class BotAudioPlayer {
-  constructor() {
+  constructor(sourceRate) {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.node = null;
     this.onSpeakingStart = null;
@@ -543,7 +559,19 @@ class BotAudioPlayer {
     this._ready = null;
     this._chunkCount = 0;
     this._playUntilMs = 0;
-    this._sourceRate = 44100;
+    this._sourceRate = sourceRate || 44100;
+  }
+
+  /** 采样率须在 init() 建 node 前设定；已建 node 则销毁以便重建 */
+  setSourceRate(rate) {
+    const next = rate || 44100;
+    if (this._sourceRate === next) return;
+    this._sourceRate = next;
+    if (this.node) {
+      try { this.node.disconnect(); } catch {}
+      this.node = null;
+    }
+    this._ready = null;
   }
 
   enqueue(arrayBuffer) {
@@ -748,7 +776,7 @@ const startVoiceCall = async () => {
   const callId = ++voiceCallId;
 
   if (!acquireVoiceLock()) {
-    appendBubble('ai', '另一个页面正在语音中，先关掉那边再试试 🌙');
+    appendSystemNote('另一个页面正在语音中，先关掉那边再试试');
     return;
   }
 
@@ -760,7 +788,7 @@ const startVoiceCall = async () => {
   voiceActive = true;
   voiceBtn.classList.add('voice-active');
   setVoiceIcon('phone');
-  appendBubble('ai', '好的，请说话 🌙');
+  appendSystemNote('好的，请说话');
 
   try {
     // 1. 请求后端启动 bot，获取 WebSocket 地址
@@ -783,12 +811,17 @@ const startVoiceCall = async () => {
       throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     }
 
-    const { ws_url } = await res.json();
+    const { ws_url, audio_out_sample_rate } = await res.json();
+    const sampleRate = audio_out_sample_rate || 44100;
     console.log('[VOICE] bot 已启动，ws_url =', ws_url);
+    console.log('[VOICE] audio_out_sample_rate =', sampleRate);
 
     // 2. 复用点击时已解锁的 AudioContext（iOS 需要用户手势）
+    //    采样率须在 init()/建 node 之前设定（字段缺失回退 44100）
     if (!audioPlayer || audioPlayer.ctx.state === 'closed') {
-      audioPlayer = new BotAudioPlayer();
+      audioPlayer = new BotAudioPlayer(sampleRate);
+    } else {
+      audioPlayer.setSourceRate(sampleRate);
     }
     audioPlayer.onSpeakingStart = () => {
       isSpeaking = true;
@@ -839,7 +872,7 @@ const startVoiceCall = async () => {
 
   } catch (e) {
     console.error('[VOICE] 启动失败:', e);
-    appendBubble('ai', '语音连接失败，请稍后再试 🌙');
+    appendSystemNote('语音连接失败，请稍后再试');
     endVoiceCall();
   } finally {
     if (callId === voiceCallId) voiceStarting = false;
@@ -893,7 +926,7 @@ voiceBtn.addEventListener('click', async () => {
     await startVoiceCall();
   } else {
     // 开启 → 关闭
-    appendBubble('ai', '好的，下次再聊 🌙');
+    appendSystemNote('好的，下次再聊');
     endVoiceCall();
   }
 });
@@ -957,3 +990,19 @@ const escHtml = (s) => {
 
   box.scrollTop = box.scrollHeight;
 })();
+
+// ── 聊天区 padding-bottom 跟随输入栏实际高度（防底栏遮挡）──
+const syncChatBoxPadding = () => {
+  const inputArea = document.querySelector('.input-area');
+  if (!inputArea) return;
+  document.documentElement.style.setProperty(
+    '--input-area-h',
+    inputArea.offsetHeight + 'px'
+  );
+};
+window.addEventListener('resize', syncChatBoxPadding);
+if (typeof ResizeObserver !== 'undefined') {
+  const ia = document.querySelector('.input-area');
+  if (ia) new ResizeObserver(syncChatBoxPadding).observe(ia);
+}
+syncChatBoxPadding();

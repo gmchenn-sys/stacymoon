@@ -125,6 +125,19 @@ body {
   scroll-behavior: smooth;
 }
 
+/* 系统状态条（语音会话提示等，非 assistant 气泡） */
+.system-note {
+  align-self: center;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 4px 0;
+  max-width: 90%;
+  border: none;
+  background: none;
+}
+
 /* ── Bubble Row ────────────────────────── */
 
 .bubble-row {
